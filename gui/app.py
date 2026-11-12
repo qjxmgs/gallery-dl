@@ -10,14 +10,15 @@ from datetime import datetime
 from http.cookiejar import MozillaCookieJar
 from urllib.parse import urlsplit
 
-from PySide6.QtCore import QProcess, QProcessEnvironment, QSettings, QTimer, QUrl
+from PySide6.QtCore import QDir, QProcess, QProcessEnvironment, QSettings, QTimer, Qt, QUrl
 from PySide6.QtGui import QColor, QDesktopServices, QIcon, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import (
-    QApplication, QCheckBox, QComboBox, QFileDialog, QHBoxLayout, QHeaderView, QLabel, QLineEdit,
+    QApplication, QCheckBox, QComboBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit,
     QMainWindow, QMessageBox, QPlainTextEdit, QProgressBar, QPushButton,
-    QSplitter, QStyle, QTableWidget, QTableWidgetItem, QToolButton, QVBoxLayout, QWidget,
+    QSplitter, QStyle, QToolButton, QVBoxLayout, QWidget,
 )
 from .window_chrome import LogWindow, follow_native_drag
+from .records import RecordTable
 from .naming import DATE_FORMATS, DEFAULT_DATE_FORMAT, DATE_FORMAT_ENV
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -66,11 +67,9 @@ class Window(QMainWindow):
         self.proc = None
         self.pending = []
         self.stopping = False
-        self.paste_button = None
         self.closing = False
         self.success_count = self.skip_count = self.failed_links = 0
         self.active_row = None
-        self.rows = {}
         self.setWindowTitle('gallery-dl · 下载工作台')
         self.setWindowIcon(
             QIcon(str(ROOT / 'gui' / 'assets' / 'gallery-dl.ico')))
@@ -87,20 +86,15 @@ class Window(QMainWindow):
         form.setContentsMargins(0, 12, 20, 0)
         form.setSpacing(12)
         form.addWidget(self.heading('下载配置'))
-        linkbar = QHBoxLayout()
-        linkbar.addWidget(QLabel('下载链接'))
-        linkbar.addStretch()
-        paste = QPushButton('粘贴链接')
-        self.paste_button = paste
-        paste.clicked.connect(self.paste_links)
-        linkbar.addWidget(paste)
-        form.addLayout(linkbar)
         self.links = QPlainTextEdit()
+        self.links.setAccessibleName('下载链接')
+        self.links.setPlainText(str(self.settings.value('links', '')))
         self.links.setPlaceholderText('粘贴要下载的链接\n支持多个链接，每行一个')
         self.links.setMinimumHeight(140)
         form.addWidget(self.links, 1)
         form.addWidget(QLabel('Cookies 文件（可选）'))
-        self.cookies = QLineEdit(str(self.settings.value('cookies', '')))
+        self.cookies = QLineEdit(QDir.toNativeSeparators(
+            str(self.settings.value('cookies', ''))))
         self.cookies.setPlaceholderText('选择 Netscape 格式 cookies.txt')
         self.cookie_button = QPushButton('选择文件')
         self.cookie_button.clicked.connect(self.pick_cookies)
@@ -111,12 +105,29 @@ class Window(QMainWindow):
         self.dir_button = QPushButton('选择目录')
         self.dir_button.clicked.connect(self.pick_directory)
         form.addLayout(self.path_row(self.directory, self.dir_button))
-        self.incremental = QCheckBox('增量下载（跳过已下载内容）')
-        self.incremental.setChecked(True)
+        self.normalize_path_fields()
+        self.cookies.editingFinished.connect(self.normalize_path_fields)
+        self.directory.editingFinished.connect(self.normalize_path_fields)
+        self.incremental = QCheckBox('增量下载')
+        self.incremental.setChecked(
+            self.settings.value('incremental', True, type=bool))
         self.incremental.setToolTip(
             '记录保存在所选下载目录中。已记录的内容即使被移动或删除也会跳过。\n'
             '取消勾选后不使用记录，仍按原下载器规则跳过已有文件。')
-        form.addWidget(self.incremental)
+        incremental_row = QHBoxLayout()
+        incremental_row.addWidget(self.incremental)
+        self.latest_only = QCheckBox('只检查最新')
+        self.latest_only.setChecked(
+            self.settings.value('latest_only', True, type=bool))
+        self.latest_only.setEnabled(self.incremental.isChecked())
+        self.latest_only.setToolTip(
+            '适用于按从新到旧返回内容的网址。遇到首个已下载文件即结束该网址，继续下一个。\n'
+            '不会检查或补齐历史遗漏；置顶、乱序或未下载完的多图内容可能被跳过。\n'
+            '需要完整检查或补下载时，请取消勾选。')
+        self.incremental.toggled.connect(self.latest_only.setEnabled)
+        incremental_row.addStretch()
+        incremental_row.addWidget(self.latest_only)
+        form.addLayout(incremental_row)
         self.date_naming = QCheckBox('按发布日期命名')
         self.date_naming.setChecked(
             self.settings.value('date_naming', True, type=bool))
@@ -168,19 +179,8 @@ class Window(QMainWindow):
         body.addLayout(record_bar)
         self.status = QLabel('准备就绪 · 添加链接后开始下载')
         self.status.setObjectName('status')
-        body.addWidget(self.status)
-        self.table = QTableWidget(0, 3)
-        self.table.setHorizontalHeaderLabels(['文件名', '大小', '状态'])
-        self.table.horizontalHeader().setSectionResizeMode(
-            0, QHeaderView.ResizeMode.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(
-            1, QHeaderView.ResizeMode.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(
-            2, QHeaderView.ResizeMode.ResizeToContents)
-        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.table.setSelectionBehavior(
-            QTableWidget.SelectionBehavior.SelectRows)
-        self.table.setAlternatingRowColors(True)
+        self.status.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.table = RecordTable()
         body.addWidget(self.table, 3)
         body.addWidget(self.heading('当前文件'))
         self.filename = QLabel('尚未开始下载')
@@ -190,7 +190,11 @@ class Window(QMainWindow):
         self.progress.setValue(0)
         body.addWidget(self.progress)
         self.speed = QLabel('—')
-        body.addWidget(self.speed)
+        progress_details = QHBoxLayout()
+        progress_details.addWidget(self.speed)
+        progress_details.addStretch()
+        progress_details.addWidget(self.status)
+        body.addLayout(progress_details)
         self.log_window = LogWindow(self)
         log_layout = QVBoxLayout(self.log_window)
         logbar = QHBoxLayout()
@@ -209,12 +213,11 @@ class Window(QMainWindow):
         splitter.setSizes([360, 780])
         splitter.setCollapsible(0, False)
         splitter.setCollapsible(1, False)
-        outer.addWidget(QLabel('本地下载工具  ·  日志保留最近 10,000 行  ·  文件总数由站点提供'))
         self.setStyleSheet('''
             QMainWindow, QWidget { background: #f6f8fb; color: #233047; font-family: "Microsoft YaHei UI"; font-size: 13px; }
             QLabel#heading { font-size: 17px; font-weight: 600; }
             QLabel#muted { color: #738096; font-size: 12px; }
-            QLabel#status { color: #1767c5; padding: 8px 0; }
+            QLabel#status { color: #1767c5; }
             QLineEdit, QPlainTextEdit, QTableWidget { background: white; border: 1px solid #d5dde8; border-radius: 5px; padding: 7px; selection-background-color: #d7e9ff; selection-color: #183253; }
             QPushButton { background: white; border: 1px solid #cbd5e2; border-radius: 5px; padding: 9px 12px; }
             QPushButton:hover { background: #eaf2ff; border-color: #2782ed; }
@@ -227,6 +230,28 @@ class Window(QMainWindow):
             QProgressBar::chunk { background: #2284ee; border-radius: 5px; }
             QSplitter::handle { background: #dfe5ee; width: 1px; }
         ''')
+        # Connect after restoring every field so initialization cannot overwrite
+        # saved values with another control's temporary default.
+        for signal in (self.links.textChanged, self.cookies.textChanged,
+                       self.directory.textChanged, self.incremental.toggled,
+                       self.latest_only.toggled,
+                       self.date_naming.toggled,
+                       self.date_format.currentIndexChanged):
+            signal.connect(self.save_preferences)
+
+    def save_preferences(self):
+        values = {
+            'links': self.links.toPlainText(),
+            'cookies': QDir.toNativeSeparators(self.cookies.text()),
+            'directory': QDir.toNativeSeparators(self.directory.text()),
+            'incremental': self.incremental.isChecked(),
+            'latest_only': self.latest_only.isChecked(),
+            'date_naming': self.date_naming.isChecked(),
+            'date_format': self.date_format.currentData(),
+        }
+        for key, value in values.items():
+            self.settings.setValue(key, value)
+        self.settings.sync()
 
     def toggle_log(self):
         if self.log_window.isVisible():
@@ -286,22 +311,21 @@ class Window(QMainWindow):
         row.addWidget(button)
         return row
 
-    def paste_links(self):
-        text = QApplication.clipboard().text().strip()
-        if text:
-            self.links.appendPlainText(text)
-
     def pick_cookies(self):
         path, _ = QFileDialog.getOpenFileName(
             self, '选择 Cookies 文件', self.cookies.text(), 'Cookies (*.txt);;所有文件 (*)')
         if path:
-            self.cookies.setText(path)
+            self.cookies.setText(QDir.toNativeSeparators(path))
 
     def pick_directory(self):
         path = QFileDialog.getExistingDirectory(
             self, '选择下载目录', self.directory.text())
         if path:
-            self.directory.setText(path)
+            self.directory.setText(QDir.toNativeSeparators(path))
+
+    def normalize_path_fields(self):
+        for field in (self.cookies, self.directory):
+            field.setText(QDir.toNativeSeparators(field.text()))
 
     def open_directory(self):
         path = Path(self.directory.text()).expanduser()
@@ -339,14 +363,16 @@ class Window(QMainWindow):
                 QMessageBox.warning(self, '导出失败', str(exc))
 
     def busy(self, value):
-        for widget in (self.start_button, self.links, self.cookies, self.directory, self.cookie_button, self.dir_button, self.paste_button, self.incremental, self.date_naming):
+        for widget in (self.start_button, self.links, self.cookies, self.directory, self.cookie_button, self.dir_button, self.incremental, self.date_naming):
             widget.setEnabled(not value)
         self.date_format.setEnabled(not value and self.date_naming.isChecked())
+        self.latest_only.setEnabled(not value and self.incremental.isChecked())
         self.stop_button.setEnabled(value)
 
     def start(self):
         if self.proc is not None:
             return
+        self.normalize_path_fields()
         try:
             urls, directory = validate_inputs(self.links.toPlainText(
             ), self.cookies.text().strip(), self.directory.text())
@@ -366,16 +392,12 @@ class Window(QMainWindow):
                                     f'无法打开下载记录，请检查目录权限或记录文件。\n{exc}')
                 return
         self.directory.setText(directory)
-        self.settings.setValue('directory', directory)
-        self.settings.setValue('cookies', self.cookies.text().strip())
-        self.settings.setValue('date_naming', self.date_naming.isChecked())
-        self.settings.setValue('date_format', self.date_format.currentData())
+        self.save_preferences()
         self.pending = urls
         self.total_links = len(urls)
         self.success_count = self.skip_count = self.failed_links = 0
         self.stopping = False
-        self.table.setRowCount(0)
-        self.rows.clear()
+        self.table.clear_records()
         self.active_row = None
         self.busy(True)
         self.append_log(f'开始下载，共 {len(urls)} 个链接。')
@@ -396,6 +418,8 @@ class Window(QMainWindow):
         self.speed.setText('等待文件信息')
         self.update_status('正在下载')
         self.append_log(f'开始解析链接：{url}')
+        if self.incremental.isChecked() and self.latest_only.isChecked():
+            self.append_log('只检查最新：遇到已下载文件后结束当前网址，不扫描历史内容。')
         process = QProcess(self)
         self.proc = process
         self.stdout_buffer = ''
@@ -414,6 +438,8 @@ class Window(QMainWindow):
         if self.archive_path:
             args += ['--download-archive', self.archive_path,
                      '-o', 'archive-event=file,skip']
+            if self.latest_only.isChecked():
+                args += ['-o', 'skip=terminate:1']
         if self.cookies.text().strip():
             args += ['--cookies', self.cookies.text().strip()]
         args += ['--', url]
@@ -448,25 +474,10 @@ class Window(QMainWindow):
         kind = event['type']
         if kind in ('start', 'skip', 'success'):
             path = event['path']
-            row = self.rows.get(path)
-            if row is None:
-                # Bound the live table; complete details remain in log output.
-                if self.table.rowCount() >= 2000:
-                    self.table.removeRow(0)
-                    self.rows = {key: value - 1 for key,
-                                 value in self.rows.items() if value > 0}
-                row = self.table.rowCount()
-                self.table.insertRow(row)
-                self.rows[path] = row
-                for col, text in enumerate((Path(path).name, '—', '')):
-                    item = QTableWidgetItem(text)
-                    item.setToolTip(path)
-                    self.table.setItem(row, col, item)
-            self.active_row = row
+            self.active_row = path
             self.filename.setText(Path(path).name)
-            state = {'start': '正在下载', 'skip': '已跳过', 'success': '已完成'}[kind]
-            self.table.item(row, 2).setText(state)
-            self.table.scrollToBottom()
+            state = {'start': '下载中', 'skip': '已跳过', 'success': '已完成'}[kind]
+            self.table.update_record(path, state=state)
             if kind == 'start':
                 self.progress.setRange(0, 0)
                 self.speed.setText('等待进度数据…')
@@ -476,11 +487,13 @@ class Window(QMainWindow):
                 self.progress.setRange(0, 100)
                 self.progress.setValue(100 if kind == 'success' else 0)
                 try:
-                    self.table.item(row, 1).setText(
-                        human_bytes(Path(path).stat().st_size))
+                    size = Path(path).stat().st_size
+                    self.table.update_record(path, size=size, size_text=human_bytes(size))
                 except OSError:
                     pass
                 self.append_log(f'{state}：{path}')
+                if kind == 'skip' and self.incremental.isChecked() and self.latest_only.isChecked():
+                    self.append_log('已遇到下载记录，结束当前网址的最新检查；历史内容未检查。')
             self.update_status('正在下载')
         elif kind == 'progress':
             total = event.get('total')
@@ -493,8 +506,8 @@ class Window(QMainWindow):
             self.speed.setText(f'{human_bytes(downloaded)} / {human_bytes(total)
                                if total else "大小未知"}  ·  {human_bytes(event.get("speed"))}/s')
             if self.active_row is not None:
-                self.table.item(self.active_row, 1).setText(
-                    human_bytes(total) if total else '未知')
+                self.table.update_record(self.active_row, size=total,
+                                         size_text=human_bytes(total) if total else '未知')
 
     def update_status(self, state):
         self.status.setText(f'{state} · 完成 {self.success_count} · 跳过 {
@@ -517,9 +530,9 @@ class Window(QMainWindow):
         if code != 0 and not self.stopping:
             self.failed_links += 1
             self.append_log(f'链接处理失败（退出码 {code}），继续下一个链接。')
-        if self.active_row is not None and self.table.item(self.active_row, 2).text() == '正在下载':
-            self.table.item(self.active_row, 2).setText(
-                '已停止' if self.stopping else '失败' if code else '处理结束')
+        if self.active_row is not None and self.table.state(self.active_row) == '下载中':
+            self.table.update_record(self.active_row, state=(
+                '已停止' if self.stopping else '已失败' if code else '已结束'))
         self.proc.deleteLater()
         self.proc = None
         self.next_url()

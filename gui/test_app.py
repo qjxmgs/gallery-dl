@@ -2,6 +2,8 @@
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import os
+import json
+import subprocess
 import sys
 from pathlib import Path
 import threading
@@ -157,6 +159,100 @@ class WorkbenchTest(unittest.TestCase):
             self.window.proc.processEnvironment().value(DATE_FORMAT_ENV), '')
         self.wait_for(lambda: self.window.proc is None)
         self.assertEqual(self.window.success_count, 1)
+
+    def test_preferences_saved_immediately_and_restored(self):
+        w = self.window
+        w.links.setPlainText('https://example.com/a\nhttps://example.com/b')
+        w.cookies.setText('D:/中文/cookies.txt')
+        w.directory.setText('D:/中文/downloads')
+        w.incremental.setChecked(False)
+        w.latest_only.setChecked(False)
+        w.date_naming.setChecked(False)
+        w.date_format.setCurrentIndex(0)
+        # Read from another process while the window is still open and no
+        # download has started, proving settings were flushed to local storage.
+        code = (
+            'import json,sys; from PySide6.QtCore import QSettings; '
+            's=QSettings(sys.argv[1],QSettings.Format.IniFormat); '
+            'print(json.dumps({k:s.value(k) for k in s.allKeys()}))'
+        )
+        saved = json.loads(subprocess.check_output(
+            [sys.executable, '-c', code, w.settings.fileName()], text=True))
+        self.assertEqual(saved['links'], w.links.toPlainText())
+        self.assertEqual(saved['cookies'], r'D:\中文\cookies.txt')
+        self.assertEqual(saved['directory'], r'D:\中文\downloads')
+        self.assertEqual(saved['date_format'], '%Y-%m-%d')
+        restored = Window(QSettings(w.settings.fileName(), QSettings.Format.IniFormat))
+        try:
+            self.assertEqual(restored.links.toPlainText(), w.links.toPlainText())
+            self.assertEqual(restored.cookies.text(), saved['cookies'])
+            self.assertEqual(restored.directory.text(), saved['directory'])
+            self.assertFalse(restored.incremental.isChecked())
+            self.assertFalse(restored.latest_only.isChecked())
+            self.assertFalse(restored.date_naming.isChecked())
+            self.assertEqual(restored.date_format.currentIndex(), 0)
+            restored.links.clear()
+            restored.cookies.clear()
+            check = QSettings(w.settings.fileName(), QSettings.Format.IniFormat)
+            self.assertEqual(check.value('links'), '')
+            self.assertEqual(check.value('cookies'), '')
+        finally:
+            restored.close()
+
+    def test_latest_only_continues_next_url(self):
+        self.assertTrue(self.window.latest_only.isChecked())
+        self.window.links.setPlainText(self.base + '/known.jpg')
+        self.window.start()
+        self.assertIn('skip=terminate:1', self.window.proc.arguments())
+        self.wait_for(lambda: self.window.proc is None)
+        self.window.links.setPlainText(self.base + '/known.jpg\n' + self.base + '/next.jpg')
+        self.window.start()
+        self.wait_for(lambda: self.window.proc is None)
+        self.assertEqual(self.window.failed_links, 0)
+        self.assertEqual(self.window.skip_count, 1)
+        self.assertEqual(self.window.success_count, 1)
+
+    def test_latest_only_stops_history_scan(self):
+        folder = QA / self._testMethodName
+        folder.mkdir()
+        (folder / 'known.jpg').write_bytes(b'existing')
+        # Exercise the real worker and DownloadJob with a deterministic ordered
+        # extractor; only the file transfer is replaced with local fixture data.
+        script = '''
+from gallery_dl import extractor, job
+from gallery_dl.extractor.common import Message
+from gui.worker import main
+sample = extractor.find('https://example.com/fixture.jpg')
+def items():
+    yield Message.Directory, '', {}
+    for name in ('new', 'known', 'older'):
+        yield Message.Url, 'https://example.com/' + name + '.jpg', {
+            'filename': name, 'extension': 'jpg', 'domain': 'example.com', 'path': ''}
+sample.items = items
+extractor.find = lambda *args, **kwargs: sample
+def download(self, url):
+    with self.pathfmt.open('wb') as handle:
+        handle.write(b'fixture')
+    return True
+job.DownloadJob.download = download
+raise SystemExit(main())
+'''
+        args = [sys.executable, '-c', script, '--ignore-config', '--no-colors',
+                '-D', str(folder), '-f', '{filename}.{extension}',
+                '--download-archive', str(folder / ARCHIVE_NAME),
+                '-o', 'archive-event=file,skip', '-o', 'skip=terminate:1',
+                'https://example.com/fixture.jpg']
+        result = subprocess.run(args, capture_output=True, text=True, encoding='utf-8', timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((folder / 'new.jpg').exists())
+        self.assertFalse((folder / 'older.jpg').exists())
+        events = [json.loads(line)['type'] for line in result.stdout.splitlines()]
+        self.assertEqual(events, ['success', 'skip'])
+        # Disabling fast mode must revisit history and fill the older gap.
+        args[args.index('skip=terminate:1')] = 'skip=true'
+        result = subprocess.run(args, capture_output=True, text=True, encoding='utf-8', timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((folder / 'older.jpg').exists())
 
     def test_native_windows_follow_geometry(self):
         log = self.window.log_window
