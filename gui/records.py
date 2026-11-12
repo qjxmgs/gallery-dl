@@ -107,7 +107,7 @@ class RecordTable(QTableWidget):
                 items[3].setText(state)
                 items[3].setData(Qt.ItemDataRole.UserRole, state)
                 color = {'下载中': '#2563eb', '已完成': '#15803d', '已失败': '#dc2626',
-                         '已跳过': '#94a3b8', '已停止': '#b45309'}.get(state, '#64748b')
+                         '已跳过': '#94a3b8', '已暂停': '#b45309', '已停止': '#b45309'}.get(state, '#64748b')
                 items[3].setForeground(QColor(color))
             if size_text is not None:
                 items[2].setText(size_text)

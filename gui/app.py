@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 )
 from .window_chrome import LogWindow, follow_native_drag
 from .records import RecordTable
+from .process_control import PausedProcessTree
 from .naming import DATE_FORMATS, DEFAULT_DATE_FORMAT, DATE_FORMAT_ENV
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -65,6 +66,8 @@ class Window(QMainWindow):
         super().__init__()
         self.settings = settings or QSettings('gallery-dl', 'ChineseGUI')
         self.proc = None
+        self.paused = False
+        self.paused_tree = PausedProcessTree()
         self.pending = []
         self.stopping = False
         self.closing = False
@@ -85,14 +88,26 @@ class Window(QMainWindow):
         form = QVBoxLayout(left)
         form.setContentsMargins(0, 12, 20, 0)
         form.setSpacing(12)
-        form.addWidget(self.heading('下载配置'))
+        config_header = QHBoxLayout()
+        config_header.addWidget(self.heading('下载配置'))
+        config_header.addStretch()
+        config_note = QLabel('按链接顺序下载，保留站点子目录。')
+        config_note.setObjectName('muted')
+        config_header.addWidget(config_note)
+        form.addLayout(config_header)
         self.links = QPlainTextEdit()
         self.links.setAccessibleName('下载链接')
         self.links.setPlainText(str(self.settings.value('links', '')))
         self.links.setPlaceholderText('粘贴要下载的链接\n支持多个链接，每行一个')
         self.links.setMinimumHeight(140)
         form.addWidget(self.links, 1)
-        form.addWidget(QLabel('Cookies 文件（可选）'))
+        cookie_header = QHBoxLayout()
+        cookie_title = QLabel('Cookies 文件（可选）')
+        cookie_tip = 'Cookies 仅供本地下载使用，不在日志中展示。'
+        cookie_title.setToolTip(cookie_tip)
+        cookie_header.addWidget(cookie_title)
+        cookie_header.addStretch()
+        form.addLayout(cookie_header)
         self.cookies = QLineEdit(QDir.toNativeSeparators(
             str(self.settings.value('cookies', ''))))
         self.cookies.setPlaceholderText('选择 Netscape 格式 cookies.txt')
@@ -142,20 +157,16 @@ class Window(QMainWindow):
         self.date_format.setEnabled(self.date_naming.isChecked())
         self.date_naming.toggled.connect(self.date_format.setEnabled)
         form.addWidget(self.date_format)
-        note = QLabel('按链接顺序下载，保留站点子目录。\nCookies 仅供本地下载使用，不在日志中展示。')
-        note.setObjectName('muted')
-        note.setWordWrap(True)
-        form.addWidget(note)
-        actions = QHBoxLayout()
         self.start_button = QPushButton('开始下载')
-        self.start_button.setObjectName('primary')
-        self.start_button.clicked.connect(self.start)
-        self.stop_button = QPushButton('停止')
+        self.start_button.setObjectName('downloadAction')
+        self.start_button.setProperty('active', False)
+        self.start_button.clicked.connect(self.toggle_download)
+        self.stop_button = QPushButton('停止下载')
+        self.stop_button.setObjectName('stopAction')
         self.stop_button.setEnabled(False)
         self.stop_button.clicked.connect(self.stop)
-        actions.addWidget(self.start_button)
-        actions.addWidget(self.stop_button)
-        form.addLayout(actions)
+        for button in (self.start_button, self.stop_button):
+            button.setFixedSize(88, 88)
         open_button = QPushButton('打开下载目录')
         open_button.clicked.connect(self.open_directory)
         form.addWidget(open_button)
@@ -182,13 +193,19 @@ class Window(QMainWindow):
         self.status.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.table = RecordTable()
         body.addWidget(self.table, 3)
-        body.addWidget(self.heading('当前文件'))
+        current_row = QHBoxLayout()
+        current_info = QVBoxLayout()
+        current_info.addWidget(self.heading('当前文件'))
         self.filename = QLabel('尚未开始下载')
         self.filename.setWordWrap(True)
-        body.addWidget(self.filename)
+        current_info.addWidget(self.filename)
         self.progress = QProgressBar()
         self.progress.setValue(0)
-        body.addWidget(self.progress)
+        current_info.addWidget(self.progress)
+        current_row.addLayout(current_info, 1)
+        current_row.addWidget(self.stop_button)
+        current_row.addWidget(self.start_button)
+        body.addLayout(current_row)
         self.speed = QLabel('—')
         progress_details = QHBoxLayout()
         progress_details.addWidget(self.speed)
@@ -221,8 +238,14 @@ class Window(QMainWindow):
             QLineEdit, QPlainTextEdit, QTableWidget { background: white; border: 1px solid #d5dde8; border-radius: 5px; padding: 7px; selection-background-color: #d7e9ff; selection-color: #183253; }
             QPushButton { background: white; border: 1px solid #cbd5e2; border-radius: 5px; padding: 9px 12px; }
             QPushButton:hover { background: #eaf2ff; border-color: #2782ed; }
-            QPushButton#primary { background: #1675e5; color: white; border-color: #1675e5; }
-            QPushButton#primary:disabled { background: #dce5f0; color: #8999ae; border-color: #dce5f0; }
+            QPushButton#downloadAction { background: #16a34a; color: white; border: none; border-radius: 6px; padding: 0px; font-weight: 600; }
+            QPushButton#downloadAction:hover { background: #15803d; }
+            QPushButton#downloadAction[active="true"] { background: #facc15; color: #713f12; }
+            QPushButton#downloadAction[active="true"]:hover { background: #eab308; }
+            QPushButton#stopAction { background: #dc2626; color: white; border: none; border-radius: 6px; padding: 0px; font-weight: 600; }
+            QPushButton#stopAction:hover { background: #b91c1c; }
+            QPushButton#stopAction:disabled { background: #fee2e2; color: #c88b8b; }
+            QPushButton#downloadAction:disabled { background: #e2e8f0; color: #94a3b8; }
             QPushButton:disabled { background: #e9edf3; color: #95a0af; border-color: #dde3eb; }
             QHeaderView::section { background: #edf2f8; padding: 9px; border: none; }
             QTableWidget { alternate-background-color: #f4f7fb; gridline-color: #e8edf4; }
@@ -363,11 +386,43 @@ class Window(QMainWindow):
                 QMessageBox.warning(self, '导出失败', str(exc))
 
     def busy(self, value):
-        for widget in (self.start_button, self.links, self.cookies, self.directory, self.cookie_button, self.dir_button, self.incremental, self.date_naming):
+        for widget in (self.links, self.cookies, self.directory, self.cookie_button, self.dir_button, self.incremental, self.date_naming):
             widget.setEnabled(not value)
         self.date_format.setEnabled(not value and self.date_naming.isChecked())
         self.latest_only.setEnabled(not value and self.incremental.isChecked())
         self.stop_button.setEnabled(value)
+        self.set_download_action(value)
+
+    def set_download_action(self, active):
+        self.start_button.setText('恢复下载' if self.paused else '暂停下载' if active else '开始下载')
+        self.start_button.setProperty('active', active)
+        self.start_button.setEnabled(not self.stopping if active else True)
+        self.start_button.style().unpolish(self.start_button)
+        self.start_button.style().polish(self.start_button)
+
+    def toggle_download(self):
+        if self.proc is None:
+            self.start()
+            return
+        if self.stopping or self.proc.state() != QProcess.ProcessState.Running:
+            return
+        try:
+            if self.paused:
+                self.paused_tree.resume()
+                self.paused = False
+            else:
+                self.paused_tree.pause(self.proc.processId())
+                self.paused = True
+        except Exception as exc:
+            self.append_log(f'暂停或恢复失败：{exc}')
+            return
+        self.set_download_action(True)
+        self.speed.setText('已暂停 · 等待恢复' if self.paused else '正在恢复下载…')
+        state = '已暂停' if self.paused else '下载中'
+        if self.active_row is not None and self.table.state(self.active_row) in ('下载中', '已暂停'):
+            self.table.update_record(self.active_row, state=state)
+        self.update_status(state)
+        self.append_log('下载已暂停，点击“恢复下载”继续。' if self.paused else '已恢复下载。')
 
     def start(self):
         if self.proc is not None:
@@ -477,6 +532,8 @@ class Window(QMainWindow):
             self.active_row = path
             self.filename.setText(Path(path).name)
             state = {'start': '下载中', 'skip': '已跳过', 'success': '已完成'}[kind]
+            if kind == 'start' and self.paused:
+                state = '已暂停'
             self.table.update_record(path, state=state)
             if kind == 'start':
                 self.progress.setRange(0, 0)
@@ -505,11 +562,15 @@ class Window(QMainWindow):
                 self.progress.setRange(0, 0)
             self.speed.setText(f'{human_bytes(downloaded)} / {human_bytes(total)
                                if total else "大小未知"}  ·  {human_bytes(event.get("speed"))}/s')
+            if self.paused:
+                self.speed.setText('已暂停 · 等待恢复')
             if self.active_row is not None:
                 self.table.update_record(self.active_row, size=total,
                                          size_text=human_bytes(total) if total else '未知')
 
     def update_status(self, state):
+        if self.paused:
+            state = '已暂停'
         self.status.setText(f'{state} · 完成 {self.success_count} · 跳过 {
                             self.skip_count} · 失败链接 {self.failed_links} · 文件总数未知')
 
@@ -530,11 +591,13 @@ class Window(QMainWindow):
         if code != 0 and not self.stopping:
             self.failed_links += 1
             self.append_log(f'链接处理失败（退出码 {code}），继续下一个链接。')
-        if self.active_row is not None and self.table.state(self.active_row) == '下载中':
+        if self.active_row is not None and self.table.state(self.active_row) in ('下载中', '已暂停'):
             self.table.update_record(self.active_row, state=(
                 '已停止' if self.stopping else '已失败' if code else '已结束'))
         self.proc.deleteLater()
         self.proc = None
+        self.paused = False
+        self.paused_tree.clear()
         self.next_url()
 
     def finish_batch(self):
@@ -555,6 +618,7 @@ class Window(QMainWindow):
         self.stopping = True
         self.pending.clear()
         self.stop_button.setEnabled(False)
+        self.start_button.setEnabled(False)
         self.append_log('正在停止下载；已完成文件保留，未完成文件按下载器规则保留。')
         if self.proc:
             if sys.platform == 'win32' and self.proc.processId():

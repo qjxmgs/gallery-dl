@@ -98,7 +98,8 @@ class WorkbenchTest(unittest.TestCase):
         self.wait_for(lambda: 0 < self.window.progress.value() <
                       100 and self.window.progress.maximum() == 100)
         self.window.grab().save(str(QA / 'C-workbench-running.png'))
-        self.assertFalse(self.window.start_button.isEnabled())
+        self.assertTrue(self.window.start_button.isEnabled())
+        self.assertEqual(self.window.start_button.text(), '暂停下载')
         self.wait_for(lambda: self.window.proc is None)
         files = list(Path(self.window.directory.text()).rglob('*image.jpg'))
         self.assertEqual(len(files), 1)
@@ -137,6 +138,47 @@ class WorkbenchTest(unittest.TestCase):
         self.assertEqual(
             list(Path(self.window.directory.text()).rglob('*never.jpg')), [])
         self.assertTrue(self.window.start_button.isEnabled())
+
+    def test_pause_resume_preserves_download_and_queue(self):
+        w = self.window
+        w.links.setPlainText(self.base + '/pause.jpg\n' + self.base + '/after.jpg')
+        w.start_button.click()
+        self.wait_for(lambda: w.progress.maximum() == 100 and 0 < w.progress.value() < 100)
+        pid = w.proc.processId()
+        w.start_button.click()
+        self.assertTrue(w.paused)
+        self.assertEqual(w.start_button.text(), '恢复下载')
+        self.assertEqual(len(w.pending), 1)
+        QTest.qWait(100)
+        partial = next(Path(w.directory.text()).rglob('*.part'))
+        before = partial.stat().st_size
+        QTest.qWait(450)
+        self.assertEqual(partial.stat().st_size, before)
+        self.assertIn('已暂停', w.status.text())
+        w.grab().save(str(QA / 'download-paused.png'))
+        w.start_button.click()
+        self.assertFalse(w.paused)
+        self.assertEqual(w.proc.processId(), pid)
+        self.assertEqual(w.start_button.text(), '暂停下载')
+        self.wait_for(lambda: w.proc is None)
+        self.assertEqual(w.success_count, 2)
+        completed = next(Path(w.directory.text()).rglob('*pause.jpg'))
+        self.assertEqual(hashlib.sha256(completed.read_bytes()).digest(), hashlib.sha256(PAYLOAD).digest())
+        self.assertEqual(w.start_button.text(), '开始下载')
+
+    def test_stop_while_paused(self):
+        w = self.window
+        w.links.setPlainText(self.base + '/paused-stop.jpg\n' + self.base + '/never-paused.jpg')
+        w.start_button.click()
+        self.wait_for(lambda: w.progress.maximum() == 100 and 0 < w.progress.value() < 100)
+        w.start_button.click()
+        self.assertTrue(w.paused)
+        w.stop_button.click()
+        self.wait_for(lambda: w.proc is None)
+        self.assertFalse(w.paused)
+        self.assertEqual(w.pending, [])
+        self.assertEqual(w.start_button.text(), '开始下载')
+        self.assertEqual(list(Path(w.directory.text()).rglob('*never-paused.jpg')), [])
 
     def test_validation_and_cookies(self):
         folder = str(QA / 'validation')

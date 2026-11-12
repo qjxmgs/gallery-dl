@@ -6,9 +6,9 @@ def main():
     try:
         from gui.app import run
     except ModuleNotFoundError as exc:
-        if exc.name != "PySide6":
+        if exc.name not in ("PySide6", "psutil"):
             raise
-        message = ('缺少 PySide6，请先安装 gui/requirements.txt 中的依赖。\n'
+        message = ('缺少 GUI 依赖，请先安装 gui/requirements.txt 中的依赖。\n'
                    'uv pip install --python .venv\\Scripts\\python.exe '
                    '-r gui\\requirements.txt')
         if sys.platform == "win32":
