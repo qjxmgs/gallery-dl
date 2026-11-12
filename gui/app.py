@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 from .window_chrome import LogWindow, follow_native_drag
 from .records import RecordTable
 from .process_control import PausedProcessTree
+from .media_button import MediaButton
 from .naming import DATE_FORMATS, DEFAULT_DATE_FORMAT, DATE_FORMAT_ENV
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -112,14 +113,23 @@ class Window(QMainWindow):
             str(self.settings.value('cookies', ''))))
         self.cookies.setPlaceholderText('选择 Netscape 格式 cookies.txt')
         self.cookie_button = QPushButton('选择文件')
+        self.cookie_button.setObjectName('pathLink')
+        self.cookie_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.cookie_button.clicked.connect(self.pick_cookies)
-        form.addLayout(self.path_row(self.cookies, self.cookie_button))
-        form.addWidget(QLabel('下载目录'))
+        cookie_header.addWidget(self.cookie_button)
+        form.addWidget(self.cookies)
+        directory_header = QHBoxLayout()
+        directory_header.addWidget(QLabel('下载目录'))
+        directory_header.addStretch()
+        form.addLayout(directory_header)
         self.directory = QLineEdit(
             str(self.settings.value('directory', str(ROOT / 'downloads'))))
         self.dir_button = QPushButton('选择目录')
+        self.dir_button.setObjectName('pathLink')
+        self.dir_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.dir_button.clicked.connect(self.pick_directory)
-        form.addLayout(self.path_row(self.directory, self.dir_button))
+        directory_header.addWidget(self.dir_button)
+        form.addWidget(self.directory)
         self.normalize_path_fields()
         self.cookies.editingFinished.connect(self.normalize_path_fields)
         self.directory.editingFinished.connect(self.normalize_path_fields)
@@ -157,11 +167,11 @@ class Window(QMainWindow):
         self.date_format.setEnabled(self.date_naming.isChecked())
         self.date_naming.toggled.connect(self.date_format.setEnabled)
         form.addWidget(self.date_format)
-        self.start_button = QPushButton('开始下载')
+        self.start_button = MediaButton('开始下载', 'play')
         self.start_button.setObjectName('downloadAction')
         self.start_button.setProperty('active', False)
         self.start_button.clicked.connect(self.toggle_download)
-        self.stop_button = QPushButton('停止下载')
+        self.stop_button = MediaButton('停止下载', 'stop')
         self.stop_button.setObjectName('stopAction')
         self.stop_button.setEnabled(False)
         self.stop_button.clicked.connect(self.stop)
@@ -238,6 +248,10 @@ class Window(QMainWindow):
             QLineEdit, QPlainTextEdit, QTableWidget { background: white; border: 1px solid #d5dde8; border-radius: 5px; padding: 7px; selection-background-color: #d7e9ff; selection-color: #183253; }
             QPushButton { background: white; border: 1px solid #cbd5e2; border-radius: 5px; padding: 9px 12px; }
             QPushButton:hover { background: #eaf2ff; border-color: #2782ed; }
+            QPushButton#pathLink { background: transparent; color: #2563eb; border: none; padding: 0px; min-height: 22px; }
+            QPushButton#pathLink:hover { background: transparent; color: #1d4ed8; text-decoration: underline; }
+            QPushButton#pathLink:focus { color: #1d4ed8; text-decoration: underline; }
+            QPushButton#pathLink:disabled { background: transparent; color: #94a3b8; text-decoration: none; }
             QPushButton#downloadAction { background: #16a34a; color: white; border: none; border-radius: 6px; padding: 0px; font-weight: 600; }
             QPushButton#downloadAction:hover { background: #15803d; }
             QPushButton#downloadAction[active="true"] { background: #facc15; color: #713f12; }
@@ -394,6 +408,7 @@ class Window(QMainWindow):
         self.set_download_action(value)
 
     def set_download_action(self, active):
+        self.start_button.set_symbol('pause' if active and not self.paused else 'play')
         self.start_button.setText('恢复下载' if self.paused else '暂停下载' if active else '开始下载')
         self.start_button.setProperty('active', active)
         self.start_button.setEnabled(not self.stopping if active else True)

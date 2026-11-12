@@ -1,8 +1,8 @@
 """Sortable download records with stable item identity during live updates."""
 from pathlib import Path
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
+from PySide6.QtCore import QRectF, Qt
+from PySide6.QtGui import QColor, QPainterPath, QRegion
 from PySide6.QtWidgets import QHeaderView, QTableWidget, QTableWidgetItem
 
 
@@ -50,7 +50,7 @@ class RecordTable(QTableWidget):
             QTableWidget#downloadRecords {
                 background: #ffffff; alternate-background-color: #f8fafc;
                 color: #334155; border: 1px solid #e2e8f0;
-                border-radius: 7px; padding: 0px;
+                border-radius: 10px; padding: 0px;
                 selection-background-color: #e8f1fd; selection-color: #1e40af;
             }
             QTableWidget#downloadRecords::item { padding: 0px 10px; border: none; }
@@ -70,6 +70,13 @@ class RecordTable(QTableWidget):
             QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0px; }
             QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: transparent; }
         ''')
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        # A stylesheet radius alone does not clip the header's child widgets.
+        outline = QPainterPath()
+        outline.addRoundedRect(QRectF(self.rect()), 10, 10)
+        self.setMask(QRegion(outline.toFillPolygon().toPolygon()))
 
     def clear_records(self):
         self.records.clear()
