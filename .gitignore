@@ -1,5 +1,11 @@
 archive/
 
+# Local GUI runtime and credentials
+/.venv/
+/*.lnk
+/cookies.txt
+/x-cookies.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

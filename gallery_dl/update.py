@@ -14,10 +14,10 @@ from .job import DownloadJob
 from . import util, version, output, exception
 
 REPOS = {
-    "stable" : "mikf/gallery-dl",
-    "dev"    : "gdl-org/builds",
-    "nightly": "gdl-org/builds",
-    "master" : "gdl-org/builds",
+    "stable" : "qjxmgs/gallery-dl",
+    "dev"    : "qjxmgs/gallery-dl",
+    "nightly": "qjxmgs/gallery-dl",
+    "master" : "qjxmgs/gallery-dl",
 }
 
 BINARIES_STABLE = {

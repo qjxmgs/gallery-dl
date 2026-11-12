@@ -9632,7 +9632,7 @@ Type
     ``list`` of ``strings``
 Default
     The ``modules`` list in
-    `extractor/__init__.py <https://github.com/mikf/gallery-dl/blob/master/gallery_dl/extractor/__init__.py#L12>`__
+    `extractor/__init__.py <https://github.com/qjxmgs/gallery-dl/blob/master/gallery_dl/extractor/__init__.py#L12>`__
 Example
     ``["reddit", "danbooru", "mangadex"]``
 Description
@@ -9655,7 +9655,7 @@ Description
     i.e. classes with a ``pattern`` attribute.
 Note
     ``null`` references internal extractors defined in
-    `extractor/__init__.py <https://github.com/mikf/gallery-dl/blob/master/gallery_dl/extractor/__init__.py#L12>`__
+    `extractor/__init__.py <https://github.com/qjxmgs/gallery-dl/blob/master/gallery_dl/extractor/__init__.py#L12>`__
     or by `extractor.modules`_.
 
 
@@ -10419,7 +10419,7 @@ Description
         Raise an exception.
 
         This can be an exception defined in
-        `exception.py <https://github.com/mikf/gallery-dl/blob/master/gallery_dl/exception.py>`_
+        `exception.py <https://github.com/qjxmgs/gallery-dl/blob/master/gallery_dl/exception.py>`_
         or a
         `built-in exception <https://docs.python.org/3/library/exceptions.html#exception-hierarchy>`_
         (e.g. ``ZeroDivisionError``)
@@ -10548,8 +10548,8 @@ Reference
 .. _open():             https://docs.python.org/3/library/functions.html#open
 .. _json.dump():        https://docs.python.org/3/library/json.html#json.dump
 .. _mature_content:     https://www.deviantart.com/developers/http/v1/20160316/object/deviation
-.. _Authentication:     https://github.com/mikf/gallery-dl#authentication
-.. _OAuth:              https://github.com/mikf/gallery-dl#oauth
+.. _Authentication:     https://github.com/qjxmgs/gallery-dl#authentication
+.. _OAuth:              https://github.com/qjxmgs/gallery-dl#oauth
 .. _youtube-dl:         https://github.com/ytdl-org/youtube-dl
 .. _yt-dlp:             https://github.com/yt-dlp/yt-dlp
 .. _FFmpeg:             https://www.ffmpeg.org/

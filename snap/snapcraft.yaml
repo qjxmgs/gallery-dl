@@ -20,7 +20,7 @@ summary: Download image-galleries and -collections from several image hosting si
 description: |
   `gallery-dl` is a command-line program to download image-galleries and -collections from several image hosting sites (see [Supported Sites][1]). It is a cross-platform tool with many configuration options and powerful filenaming capabilities.
 
-  [1]: https://github.com/mikf/gallery-dl/blob/master/docs/supportedsites.rst
+  [1]: https://github.com/qjxmgs/gallery-dl/blob/master/docs/supportedsites.md
 
 adopt-info: gallery-dl
 confinement: strict

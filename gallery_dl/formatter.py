@@ -77,7 +77,7 @@ class StringFormatter():
     - Example: {f!l} -> "example"; {f!u} -> "EXAMPLE"
 
     # Go to _CONVERSIONS and _SPECIFIERS below to se all of them, read:
-    # https://github.com/mikf/gallery-dl/blob/master/docs/formatting.md
+    # https://github.com/qjxmgs/gallery-dl/blob/master/docs/formatting.md
 
     Extra Format Specifiers:
     - "?<before>/<after>/":

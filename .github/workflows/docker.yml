@@ -18,18 +18,17 @@ concurrency:
 jobs:
   build:
 
-    if: github.repository == 'mikf/gallery-dl'
+    if: github.repository == 'qjxmgs/gallery-dl'
     runs-on: ubuntu-latest
 
     steps:
-    - uses: gdl-org/clone@c54f55c32557e4755f08232bdb8a60f94a26fbdd  # v1.0.0
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
 
     - uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf  # v6.0.0
       id: metadata
       with:
         images: |
-          mikf123/gallery-dl
-          ghcr.io/mikf/gallery-dl
+          ghcr.io/qjxmgs/gallery-dl
         tags: |
           type=ref,event=tag
           type=raw,value=dev
@@ -40,18 +39,12 @@ jobs:
 
     - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd  # v4.0.0
 
-    - name: Login to DockerHub
-      uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121  # v4.1.0
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-
     - name: Login to GitHub Container Registry
       uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121  # v4.1.0
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
-        password: ${{ secrets.GHCR_TOKEN }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
     - uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f  # v7.1.0
       with:

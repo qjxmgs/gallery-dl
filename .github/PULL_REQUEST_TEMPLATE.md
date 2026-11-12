@@ -1,7 +1,8 @@
-Active development has moved to [Codeberg](https://codeberg.org/mikf/gallery-dl)\
-(see [[Announcement] Moving to Codeberg](https://github.com/mikf/gallery-dl/issues/9374) for details)
+This fork is maintained at https://github.com/qjxmgs/gallery-dl.
 
-Please open new Pull Requests at https://codeberg.org/mikf/gallery-dl/pulls
+Please open Issues and Pull Requests in this repository:
+- https://github.com/qjxmgs/gallery-dl/issues
+- https://github.com/qjxmgs/gallery-dl/pulls
 
 
 ### Automated Contributions (AI / LLM)

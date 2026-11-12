@@ -188,7 +188,7 @@ class Job():
             log.error(("An unexpected error occurred: %s - %s. "
                        "Please run gallery-dl again with the --verbose flag, "
                        "copy its output and report this issue on "
-                       "https://github.com/mikf/gallery-dl/issues ."),
+                       "https://github.com/qjxmgs/gallery-dl/issues ."),
                       exc.__class__.__name__, exc)
             log.traceback(exc)
             self.status |= 1

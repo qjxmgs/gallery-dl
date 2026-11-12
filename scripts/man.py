@@ -77,12 +77,12 @@ Per user configuration file.
 Alternate per user configuration file.
 
 .SH BUGS
-https://github.com/mikf/gallery-dl/issues
+https://github.com/qjxmgs/gallery-dl/issues
 
 .SH AUTHORS
 Mike Fährmann <mike_faehrmann@web.de>
 .br
-and https://github.com/mikf/gallery-dl/graphs/contributors
+and https://github.com/qjxmgs/gallery-dl/graphs/contributors
 
 .SH "SEE ALSO"
 .BR gallery-dl.conf (5)
@@ -188,12 +188,12 @@ those as makeshift comments by settings their values to arbitrary strings.
 %(options)s
 
 .SH BUGS
-https://github.com/mikf/gallery-dl/issues
+https://github.com/qjxmgs/gallery-dl/issues
 
 .SH AUTHORS
 Mike Fährmann <mike_faehrmann@web.de>
 .br
-and https://github.com/mikf/gallery-dl/graphs/contributors
+and https://github.com/qjxmgs/gallery-dl/graphs/contributors
 
 .SH "SEE ALSO"
 .BR gallery-dl (1)

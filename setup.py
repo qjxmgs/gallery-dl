@@ -52,7 +52,7 @@ PACKAGES = [
 DESCRIPTION = ("Command-line program to download image galleries and "
                "collections from several image hosting sites")
 LONG_DESCRIPTION = read("README.rst").replace(
-    "<docs/", "<https://github.com/mikf/gallery-dl/blob/master/docs/")
+    "<docs/", "<https://github.com/qjxmgs/gallery-dl/blob/master/docs/")
 
 
 def build_py2exe():
@@ -95,8 +95,8 @@ def build_setuptools():
         description=DESCRIPTION,
         long_description=LONG_DESCRIPTION,
         long_description_content_type="text/x-rst",
-        url="https://github.com/mikf/gallery-dl",
-        download_url="https://github.com/mikf/gallery-dl/releases/latest",
+        url="https://github.com/qjxmgs/gallery-dl",
+        download_url="https://github.com/qjxmgs/gallery-dl/releases/latest",
         author="Mike Fährmann",
         author_email="mike_faehrmann@web.de",
         maintainer="Mike Fährmann",

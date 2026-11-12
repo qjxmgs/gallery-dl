@@ -15,11 +15,12 @@ options, as well as powerful
 
 -----
 
-Migration
-=========
+Repository
+==========
 
-| Active development has moved to `Codeberg <https://codeberg.org/mikf/gallery-dl>`__
-| (see `[Announcement] Moving to Codeberg <https://github.com/mikf/gallery-dl/issues/9374>`__ for details)
+| This fork is maintained at `qjxmgs/gallery-dl <https://github.com/qjxmgs/gallery-dl>`__.
+| Upstream: `mikf/gallery-dl <https://codeberg.org/mikf/gallery-dl>`__.
+| Chinese Qt desktop interface: see `GUI instructions <gui/README.md>`__.
 
 -----
 
@@ -71,7 +72,7 @@ can be done with pip_ as well:
 
 .. code:: bash
 
-    python -m pip install -U --force-reinstall --no-deps https://codeberg.org/mikf/gallery-dl/archive/master.tar.gz
+    python -m pip install -U --force-reinstall --no-deps https://github.com/qjxmgs/gallery-dl/archive/refs/heads/master.tar.gz
 
 Omit :code:`--no-deps` if Requests_ hasn't been installed yet.
 
@@ -92,16 +93,16 @@ Standalone Executable
 Prebuilt executable files with a Python interpreter and
 required Python packages included are available for
 
-- `Windows <https://codeberg.org/mikf/gallery-dl/releases/download/v1.32.19/gallery-dl.exe>`__
+- `Windows <https://github.com/qjxmgs/gallery-dl/releases>`__
   (Requires `Microsoft Visual C++ Redistributable Package (x86) <https://aka.ms/vs/17/release/vc_redist.x86.exe>`__)
-- `Linux   <https://codeberg.org/mikf/gallery-dl/releases/download/v1.32.19/gallery-dl.bin>`__
+- `Linux   <https://github.com/qjxmgs/gallery-dl/releases>`__
 
 
 Nightly Builds
 --------------
 
 | Executables built from the latest commit can be found at
-| https://github.com/gdl-org/builds/releases
+| https://github.com/qjxmgs/gallery-dl/releases
 
 
 Snap
@@ -157,30 +158,30 @@ Using the Dockerfile in the repository:
 
 .. code:: bash
 
-    git clone https://codeberg.org/mikf/gallery-dl.git
+    git clone https://github.com/qjxmgs/gallery-dl.git
     cd gallery-dl/
     docker build -t gallery-dl:latest .
 
-Pulling image from `Docker Hub <https://hub.docker.com/r/mikf123/gallery-dl>`__:
+Pulling the upstream image from `Docker Hub <https://hub.docker.com/r/mikf123/gallery-dl>`__:
 
 .. code:: bash
 
     docker pull mikf123/gallery-dl
     docker tag mikf123/gallery-dl gallery-dl
 
-Pulling image from `GitHub Container Registry <https://github.com/mikf/gallery-dl/pkgs/container/gallery-dl>`__:
+After publishing this fork's container image, pull it from `GitHub Container Registry <https://github.com/qjxmgs/gallery-dl/pkgs/container/gallery-dl>`__:
 
 .. code:: bash
 
-    docker pull ghcr.io/mikf/gallery-dl
-    docker tag ghcr.io/mikf/gallery-dl gallery-dl
+    docker pull ghcr.io/qjxmgs/gallery-dl
+    docker tag ghcr.io/qjxmgs/gallery-dl gallery-dl
 
 Pulling *Nightly Build* images built from the latest commit by using the ``dev`` tag:
 
 .. code:: bash
 
     docker pull mikf123/gallery-dl:dev
-    docker pull ghcr.io/mikf/gallery-dl:dev
+    docker pull ghcr.io/qjxmgs/gallery-dl:dev
 
 To run the container you will probably want to attach some directories on the host so that the config file and downloads can persist across runs.
 
@@ -504,8 +505,8 @@ To authenticate with a ``mastodon`` instance, run *gallery-dl* with
 .. |pypi| image:: https://img.shields.io/pypi/v/gallery-dl?logo=pypi&label=PyPI
     :target: https://pypi.org/project/gallery-dl/
 
-.. |build| image:: https://github.com/mikf/gallery-dl/actions/workflows/tests.yml/badge.svg
-    :target: https://github.com/mikf/gallery-dl/actions
+.. |build| image:: https://github.com/qjxmgs/gallery-dl/actions/workflows/tests.yml/badge.svg
+    :target: https://github.com/qjxmgs/gallery-dl/actions
 
 .. |gitter| image:: https://badges.gitter.im/gallery-dl/main.svg
     :target: https://gitter.im/gallery-dl/main

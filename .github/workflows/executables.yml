@@ -5,13 +5,16 @@ on:
   schedule:
     - cron: '0 0 * * *'
 
+permissions:
+  contents: write
+
 env:
   DATE_FORMAT: "%Y.%m.%d"
 
 jobs:
   build:
 
-    if: github.repository == 'mikf/gallery-dl'
+    if: github.repository == 'qjxmgs/gallery-dl'
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -37,7 +40,7 @@ jobs:
           python-packages: "toml"
 
     steps:
-    - uses: gdl-org/clone@c54f55c32557e4755f08232bdb8a60f94a26fbdd  # v1.0.0
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
 
     - name: Set up Python ${{ matrix.python-version }} ${{ matrix.architecture }}
       uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
@@ -108,11 +111,11 @@ jobs:
 
     - uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd  # v1.21.0
       with:
-        owner: gdl-org
-        repo: builds
+        owner: qjxmgs
+        repo: gallery-dl
         tag: ${{ env.DATE }}
         bodyFile: body.md
         artifacts: "executable-*/*"
         allowUpdates: true
         makeLatest: true
-        token: ${{ secrets.REPO_TOKEN }}
+        token: ${{ secrets.GITHUB_TOKEN }}

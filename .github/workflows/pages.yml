@@ -18,25 +18,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  dispatch:
-
-    if: github.repository == 'mikf/gallery-dl'
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Dispatch to gdl-org/docs
-      run: >
-        curl -L
-        -X POST
-        -H "Accept: application/vnd.github+json"
-        -H "Authorization: Bearer ${{ secrets.REPO_TOKEN }}"
-        -H "X-GitHub-Api-Version: 2022-11-28"
-        https://api.github.com/repos/gdl-org/docs/actions/workflows/pages.yml/dispatches
-        -d '{"ref":"master"}'
-
   deploy:
 
-    if: github.repository == 'mikf/gallery-dl'
+    if: github.repository == 'qjxmgs/gallery-dl'
     runs-on: ubuntu-latest
 
     environment:
@@ -44,7 +28,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-    - uses: gdl-org/clone@c54f55c32557e4755f08232bdb8a60f94a26fbdd  # v1.0.0
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
 
     - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d  # v6.0.0
 

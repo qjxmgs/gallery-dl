@@ -167,7 +167,7 @@ Consider all listed sites to potentially be NSFW.
     <td>Boosty</td>
     <td>https://www.boosty.to/</td>
     <td>DMs, Subscriptions Feed, Followed Users, Media Files, Posts, User Profiles</td>
-    <td><a href="https://github.com/mikf/gallery-dl#cookies">Cookies</a></td>
+    <td><a href="https://github.com/qjxmgs/gallery-dl#cookies">Cookies</a></td>
 </tr>
 <tr id="booth" title="booth">
     <td>BOOTH</td>
@@ -269,7 +269,7 @@ Consider all listed sites to potentially be NSFW.
     <td>DeviantArt</td>
     <td>https://www.deviantart.com/</td>
     <td>Avatars, Backgrounds, Collections, Deviations, Favorites, Folders, Followed Users, Galleries, Gallery Searches, Journals, Scraps, Search Results, Sta.sh, Status Updates, Tag Searches, User Profiles, Watches</td>
-    <td><a href="https://github.com/mikf/gallery-dl#oauth">OAuth</a></td>
+    <td><a href="https://github.com/qjxmgs/gallery-dl#oauth">OAuth</a></td>
 </tr>
 <tr id="discord" title="discord">
     <td>Discord</td>
@@ -311,7 +311,7 @@ Consider all listed sites to potentially be NSFW.
     <td>Facebook</td>
     <td>https://www.facebook.com/</td>
     <td>Albums, Avatars, User Profile Information, Photos, Profile Photos, Sets, User Profiles, Videos</td>
-    <td><a href="https://github.com/mikf/gallery-dl#cookies">Cookies</a></td>
+    <td><a href="https://github.com/qjxmgs/gallery-dl#cookies">Cookies</a></td>
 </tr>
 <tr id="fansly" title="fansly">
     <td>Fansly</td>
@@ -323,7 +323,7 @@ Consider all listed sites to potentially be NSFW.
     <td>Fantia</td>
     <td>https://fantia.jp/</td>
     <td>Creators, Posts, Supported Creators</td>
-    <td><a href="https://github.com/mikf/gallery-dl#cookies">Cookies</a></td>
+    <td><a href="https://github.com/qjxmgs/gallery-dl#cookies">Cookies</a></td>
 </tr>
 <tr id="fapachi" title="fapachi">
     <td>Fapachi</td>
@@ -359,7 +359,7 @@ Consider all listed sites to potentially be NSFW.
     <td>Flickr</td>
     <td>https://www.flickr.com/</td>
     <td>Albums, Favorites, Galleries, Groups, individual Images, Search Results, User Profiles</td>
-    <td><a href="https://github.com/mikf/gallery-dl#oauth">OAuth</a></td>
+    <td><a href="https://github.com/qjxmgs/gallery-dl#oauth">OAuth</a></td>
 </tr>
 <tr id="foriio" title="foriio">
     <td>foriio</td>
@@ -371,7 +371,7 @@ Consider all listed sites to potentially be NSFW.
     <td>Fur Affinity</td>
     <td>https://www.furaffinity.net/</td>
     <td>Favorites, Folders, Followed Users, Galleries, Posts, Scraps, Search Results, New Submissions, User Profiles</td>
-    <td><a href="https://github.com/mikf/gallery-dl#cookies">Cookies</a></td>
+    <td><a href="https://github.com/qjxmgs/gallery-dl#cookies">Cookies</a></td>
 </tr>
 <tr id="furry34" title="furry34">
     <td>Furry 34 com</td>
@@ -521,7 +521,7 @@ Consider all listed sites to potentially be NSFW.
     <td>Instagram</td>
     <td>https://www.instagram.com/</td>
     <td>Avatars, Collections, Followers, Followed Users, Guides, Highlights, User Profile Information, Posts, Reels, Saved Posts, Stories, Stories Home Tray, Tag Searches, Tagged Posts, User Profiles</td>
-    <td><a href="https://github.com/mikf/gallery-dl#cookies">Cookies</a></td>
+    <td><a href="https://github.com/qjxmgs/gallery-dl#cookies">Cookies</a></td>
 </tr>
 <tr id="issuu" title="issuu">
     <td>Issuu</td>
@@ -785,7 +785,7 @@ Consider all listed sites to potentially be NSFW.
     <td>Patreon</td>
     <td>https://www.patreon.com/</td>
     <td>Collections, Creators, Posts, User Profiles</td>
-    <td><a href="https://github.com/mikf/gallery-dl#cookies">Cookies</a></td>
+    <td><a href="https://github.com/qjxmgs/gallery-dl#cookies">Cookies</a></td>
 </tr>
 <tr id="pexels" title="pexels">
     <td>Pexels</td>
@@ -839,7 +839,7 @@ Consider all listed sites to potentially be NSFW.
     <td>Pinterest</td>
     <td>https://www.pinterest.com/</td>
     <td>All Pins, Created Pins, Pins, pin.it Links, related Pins, Search Results, Sections, User Profiles</td>
-    <td><a href="https://github.com/mikf/gallery-dl#cookies">Cookies</a></td>
+    <td><a href="https://github.com/qjxmgs/gallery-dl#cookies">Cookies</a></td>
 </tr>
 <tr id="pixeldrain" title="pixeldrain">
     <td>pixeldrain</td>
@@ -851,19 +851,19 @@ Consider all listed sites to potentially be NSFW.
     <td>[pixiv]</td>
     <td>https://www.pixiv.net/</td>
     <td>Artworks, Avatars, Backgrounds, Favorites, Follows, pixiv.me Links, pixivision, Rankings, Search Results, Series, Sketch, Unlisted Works, User Profiles, individual Images</td>
-    <td><a href="https://github.com/mikf/gallery-dl#oauth">OAuth</a></td>
+    <td><a href="https://github.com/qjxmgs/gallery-dl#oauth">OAuth</a></td>
 </tr>
 <tr id="pixiv-novel" title="pixiv-novel">
     <td>[pixiv] Novels</td>
     <td>https://www.pixiv.net/novel</td>
     <td>Bookmarks, Novels, Series, User Profiles</td>
-    <td><a href="https://github.com/mikf/gallery-dl#oauth">OAuth</a></td>
+    <td><a href="https://github.com/qjxmgs/gallery-dl#oauth">OAuth</a></td>
 </tr>
 <tr id="fanbox" title="fanbox">
     <td>pixivFANBOX</td>
     <td>https://www.fanbox.cc/</td>
     <td>Creators, Home Feed, Posts, Pixiv Redirects, Supported User Feed, Tag Searches</td>
-    <td><a href="https://github.com/mikf/gallery-dl#cookies">Cookies</a></td>
+    <td><a href="https://github.com/qjxmgs/gallery-dl#cookies">Cookies</a></td>
 </tr>
 <tr id="pixnet" title="pixnet">
     <td>Pixnet</td>
@@ -881,7 +881,7 @@ Consider all listed sites to potentially be NSFW.
     <td>Poipiku</td>
     <td>https://poipiku.com/</td>
     <td>Posts, User Profiles</td>
-    <td><a href="https://github.com/mikf/gallery-dl#cookies">Cookies</a></td>
+    <td><a href="https://github.com/qjxmgs/gallery-dl#cookies">Cookies</a></td>
 </tr>
 <tr id="poringa" title="poringa">
     <td>Poringa</td>
@@ -935,7 +935,7 @@ Consider all listed sites to potentially be NSFW.
     <td>Reddit</td>
     <td>https://www.reddit.com/</td>
     <td>Home Feed, individual Images, Redirects, Submissions, Subreddits, User Profiles</td>
-    <td><a href="https://github.com/mikf/gallery-dl#oauth">OAuth</a></td>
+    <td><a href="https://github.com/qjxmgs/gallery-dl#oauth">OAuth</a></td>
 </tr>
 <tr id="redgifs" title="redgifs">
     <td>RedGIFs</td>
@@ -1043,7 +1043,7 @@ Consider all listed sites to potentially be NSFW.
     <td>SmugMug</td>
     <td>https://www.smugmug.com/</td>
     <td>Albums, individual Images, Images from Users and Folders</td>
-    <td><a href="https://github.com/mikf/gallery-dl#oauth">OAuth</a></td>
+    <td><a href="https://github.com/qjxmgs/gallery-dl#oauth">OAuth</a></td>
 </tr>
 <tr id="soundgasm" title="soundgasm">
     <td>Soundgasm</td>
@@ -1115,7 +1115,7 @@ Consider all listed sites to potentially be NSFW.
     <td>TikTok</td>
     <td>https://www.tiktok.com/</td>
     <td>Avatars, Followed Users (Stories Only), Likes, Posts, User Posts, Reposts, Saved Posts, Stories, User Profiles, VM Posts</td>
-    <td><a href="https://github.com/mikf/gallery-dl#cookies">Cookies</a></td>
+    <td><a href="https://github.com/qjxmgs/gallery-dl#cookies">Cookies</a></td>
 </tr>
 <tr id="tmohentai" title="tmohentai">
     <td>TMOHentai</td>
@@ -1133,7 +1133,7 @@ Consider all listed sites to potentially be NSFW.
     <td>Tumblr</td>
     <td>https://www.tumblr.com/</td>
     <td>Days, Followers, Followed Users, Likes, Posts, Search Results, Tag Searches, User Profiles</td>
-    <td><a href="https://github.com/mikf/gallery-dl#oauth">OAuth</a></td>
+    <td><a href="https://github.com/qjxmgs/gallery-dl#oauth">OAuth</a></td>
 </tr>
 <tr id="tumblrgallery" title="tumblrgallery">
     <td>TumblrGallery</td>
@@ -1163,7 +1163,7 @@ Consider all listed sites to potentially be NSFW.
     <td>Twitter</td>
     <td>https://x.com/</td>
     <td>Avatars, Backgrounds, Bookmarks, Communities, Events, Followers, Followed Users, Hashtags, Highlights, Home Feed, individual Images, User Profile Information, Likes, Lists, List Members, Media Timelines, Notifications, Quotes, Search Results, Timelines, Tweets, User Profiles</td>
-    <td><a href="https://github.com/mikf/gallery-dl#cookies">Cookies</a></td>
+    <td><a href="https://github.com/qjxmgs/gallery-dl#cookies">Cookies</a></td>
 </tr>
 <tr id="unsplash" title="unsplash">
     <td>Unsplash</td>
@@ -2079,19 +2079,19 @@ Consider all listed sites to potentially be NSFW.
     <td>mastodon.social</td>
     <td>https://mastodon.social/</td>
     <td>Bookmarks, Favorites, Followed Users, Hashtags, Lists, Images from Statuses, User Profiles</td>
-    <td><a href="https://github.com/mikf/gallery-dl#oauth">OAuth</a></td>
+    <td><a href="https://github.com/qjxmgs/gallery-dl#oauth">OAuth</a></td>
 </tr>
 <tr id="pawoo" title="pawoo">
     <td>Pawoo</td>
     <td>https://pawoo.net/</td>
     <td>Bookmarks, Favorites, Followed Users, Hashtags, Lists, Images from Statuses, User Profiles</td>
-    <td><a href="https://github.com/mikf/gallery-dl#oauth">OAuth</a></td>
+    <td><a href="https://github.com/qjxmgs/gallery-dl#oauth">OAuth</a></td>
 </tr>
 <tr id="baraag" title="baraag">
     <td>baraag</td>
     <td>https://baraag.net/</td>
     <td>Bookmarks, Favorites, Followed Users, Hashtags, Lists, Images from Statuses, User Profiles</td>
-    <td><a href="https://github.com/mikf/gallery-dl#oauth">OAuth</a></td>
+    <td><a href="https://github.com/qjxmgs/gallery-dl#oauth">OAuth</a></td>
 </tr>
 
 <tr id="shopify" title="shopify">
