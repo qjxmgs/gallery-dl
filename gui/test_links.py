@@ -1,4 +1,5 @@
 import unittest
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 from PySide6.QtCore import QSettings, Qt
@@ -9,7 +10,7 @@ class LinksTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.app = QApplication.instance() or QApplication([])
-        cls.root = Path(r'D:\Develop\QA\gallery-dl\card-tests')
+        cls.root = Path(r'D:\Develop\QA\gallery-dl') / datetime.now().strftime('%Y%m%d-%H%M%S')
         cls.root.mkdir(parents=True, exist_ok=True)
 
     def test_selection_migration_edit_and_restore(self):
@@ -64,3 +65,71 @@ class LinksTest(unittest.TestCase):
         links.remove_card(links.cards[0])
         self.assertEqual(links.selected_urls(), ['https://x.com/b'])
         links.close()
+
+    def test_drag_swap_insert_and_persistence(self):
+        settings = QSettings(str(self.root / 'reorder.ini'), QSettings.Format.IniFormat)
+        w = Window(settings)
+        self.addCleanup(w.close)
+        links = w.links
+        links.setPlainText('\n'.join('https://x.com/' + c for c in 'abcd'))
+        w.show()
+        self.app.processEvents()
+        original = list(links.cards)
+        original[1].check.setChecked(False)
+        target = original[2]
+        for fraction, expected in [(0.14, ('insert', 2)), (0.16, ('swap', 2)),
+                                   (0.84, ('swap', 2)), (0.86, ('insert', 3))]:
+            self.assertEqual(links.target_at(target.y() + target.height() * fraction), expected)
+
+        def drop(source, target, fraction):
+            from PySide6.QtCore import QPoint
+            links.drag_card = source
+            links.update_drop(target.mapToGlobal(QPoint(20, int(target.height() * fraction))))
+            self.assertFalse(links.drop_indicator.isHidden())
+            if fraction < .15 or fraction > .85:
+                self.assertEqual(links.drop_indicator.height(), 3)
+            links.finish_drag()
+            self.app.processEvents()
+            self.assertTrue(links.drop_indicator.isHidden())
+            self.assertEqual([links.rows.itemAt(i).widget() for i in range(4)], links.cards)
+
+        drop(original[0], original[2], .5)
+        self.assertEqual(links.cards, [original[i] for i in [2, 1, 0, 3]])
+        drop(original[2], original[3], .95)
+        self.assertEqual(links.cards, [original[i] for i in [1, 0, 3, 2]])
+        drop(original[2], original[1], .05)
+        self.assertEqual(links.cards, [original[i] for i in [2, 1, 0, 3]])
+        self.assertFalse(original[1].check.isChecked())
+        self.assertEqual(links.selected_urls(), ['https://x.com/' + c for c in 'cad'])
+        links.drag_card = original[0]
+        links.drop_target = ('swap', 0)
+        links.finish_drag(False)
+        expected = links.entries()
+        w.save_preferences()
+        restored = Window(settings)
+        self.addCleanup(restored.close)
+        self.assertEqual(restored.links.entries(), expected)
+
+    def test_mouse_drag_and_disabled_list(self):
+        from PySide6.QtCore import QPoint
+        from PySide6.QtTest import QTest
+        from gui.link_list import LinkList
+        links = LinkList()
+        self.addCleanup(links.close)
+        links.resize(380, 420)
+        links.setPlainText('https://x.com/a\nhttps://x.com/b\nhttps://x.com/c')
+        links.show()
+        self.app.processEvents()
+        first, second, third = links.cards
+        start = QPoint(first.width() - 40, 12)
+        end = first.mapFromGlobal(third.mapToGlobal(QPoint(100, 32)))
+        QTest.mousePress(first, Qt.MouseButton.LeftButton, pos=start)
+        QTest.mouseMove(first, end)
+        self.assertIs(links.drag_card, first)
+        QTest.mouseRelease(first, Qt.MouseButton.LeftButton, pos=end)
+        self.assertEqual(links.cards, [third, second, first])
+        links.setEnabled(False)
+        links.drag_card = first
+        links.drop_target = ('swap', 0)
+        links.finish_drag()
+        self.assertEqual(links.cards, [third, second, first])

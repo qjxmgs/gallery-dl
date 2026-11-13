@@ -127,6 +127,11 @@ class Window(QMainWindow):
         form.addLayout(directory_header)
         self.directory = QLineEdit(
             str(self.settings.value('directory', str(ROOT / 'downloads'))))
+        open_button = QPushButton('打开目录')
+        open_button.setObjectName('pathLink')
+        open_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        open_button.clicked.connect(self.open_directory)
+        directory_header.addWidget(open_button)
         self.dir_button = QPushButton('选择目录')
         self.dir_button.setObjectName('pathLink')
         self.dir_button.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -180,9 +185,6 @@ class Window(QMainWindow):
         self.stop_button.clicked.connect(self.stop)
         for button in (self.start_button, self.stop_button):
             button.setFixedSize(88, 88)
-        open_button = QPushButton('打开下载目录')
-        open_button.clicked.connect(self.open_directory)
-        form.addWidget(open_button)
         form.addStretch()
         left_scroll = QScrollArea()
         left_scroll.setWidgetResizable(True)
