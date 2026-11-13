@@ -66,6 +66,40 @@ class LinksTest(unittest.TestCase):
         self.assertEqual(links.selected_urls(), ['https://x.com/b'])
         links.close()
 
+    def test_card_folder_and_actions(self):
+        settings = QSettings(str(self.root / 'folders.ini'), QSettings.Format.IniFormat)
+        w = Window(settings)
+        self.addCleanup(w.close)
+        w.directory.setText(str(self.root / 'folder-downloads'))
+        w.links.setPlainText('https://x.com/example')
+        w.show()
+        self.app.processEvents()
+        card = w.links.cards[0]
+        folder = Path(w.directory.text()) / 'twitter' / 'example'
+        folder.mkdir(parents=True, exist_ok=True)
+        with patch('gui.app.QDesktopServices.openUrl', return_value=True) as opened:
+            card.folder.click()
+            self.assertEqual(Path(opened.call_args.args[0].toLocalFile()), folder.resolve())
+        card.remove.show()
+        self.app.processEvents()
+        self.assertLess(card.remove.geometry().bottom(), card.folder.y())
+        self.assertEqual(card.remove.x(), card.folder.x())
+        actual = Path(w.directory.text()) / 'actual-site' / 'account'
+        actual.mkdir(parents=True, exist_ok=True)
+        w.active_url = card.url
+        w.handle_event({'type': 'start', 'path': str(actual / 'image.jpg')})
+        with patch('gui.app.QDesktopServices.openUrl', return_value=True) as opened:
+            card.folder.click()
+            self.assertEqual(Path(opened.call_args.args[0].toLocalFile()), actual.resolve())
+        restored = Window(settings)
+        self.addCleanup(restored.close)
+        self.assertEqual(restored.link_directories, w.link_directories)
+        w.directory.setText(str(self.root / 'missing-root'))
+        with patch('gui.app.QDesktopServices.openUrl') as opened, patch('gui.app.QMessageBox.information') as info:
+            card.folder.click()
+            opened.assert_not_called()
+            info.assert_called_once()
+
     def test_drag_swap_insert_and_persistence(self):
         settings = QSettings(str(self.root / 'reorder.ini'), QSettings.Format.IniFormat)
         w = Window(settings)

@@ -87,7 +87,7 @@ class WorkbenchTest(unittest.TestCase):
         self.fail('Timed out: ' + self.window.log.toPlainText())
 
     def test_download_progress_skip_and_unknown_size(self):
-        self.assertTrue(self.window.date_naming.isChecked())
+        self.assertTrue(self.window.date_format.currentData())
         self.assertEqual(self.window.date_format.currentData(),
                          DEFAULT_DATE_FORMAT)
         self.window.links.setPlainText(self.base + '/image.jpg')
@@ -193,14 +193,59 @@ class WorkbenchTest(unittest.TestCase):
             self.base + '\n' + self.base, str(cookie), folder)
         self.assertEqual(urls, [self.base])
         self.window.cookies.setText(str(cookie))
-        self.window.date_naming.setChecked(False)
-        self.assertFalse(self.window.date_format.isEnabled())
+        self.window.date_format.setCurrentIndex(0)
+        self.assertTrue(self.window.date_format.isEnabled())
         self.window.links.setPlainText(self.base + '/cookie.jpg')
         self.window.start()
         self.assertEqual(
             self.window.proc.processEnvironment().value(DATE_FORMAT_ENV), '')
         self.wait_for(lambda: self.window.proc is None)
         self.assertEqual(self.window.success_count, 1)
+
+    def test_naming_dropdown_and_legacy_preferences(self):
+        w = self.window
+        w.settings.setValue('date_naming', False)
+        w.settings.setValue('date_format', '%Y-%m-%d')
+        restored = Window(w.settings)
+        self.addCleanup(restored.close)
+        restored.show()
+        self.app.processEvents()
+        combo = restored.date_format
+        self.assertEqual(combo.currentText(), '原文件名')
+        self.assertEqual(combo.currentData(), '')
+        before = [widget.geometry() for widget in (restored.links, combo.parentWidget(), combo)]
+        combo.showPopup()
+        self.app.processEvents()
+        self.assertEqual(combo.options.width(), combo.width())
+        from PySide6.QtCore import QPoint
+        self.assertEqual(combo.options.pos(), combo.mapToGlobal(QPoint(0, combo.height() + 4)))
+        self.assertEqual(before, [widget.geometry() for widget in (restored.links, combo.parentWidget(), combo)])
+        self.assertTrue(combo.options.isWindow())
+        self.assertFalse(combo.options.mask().isEmpty())
+        QTest.keyClick(combo.options, Qt.Key.Key_Down)
+        QTest.keyClick(combo.options, Qt.Key.Key_Return)
+        self.assertEqual(combo.currentData(), '%Y-%m-%d')
+        self.assertTrue(combo.options.isHidden())
+        combo.showPopup()
+        QTest.keyClick(combo.options, Qt.Key.Key_Escape)
+        self.assertTrue(combo.options.isHidden())
+        for x in (20, combo.width() - 15):
+            QTest.mouseClick(combo, Qt.MouseButton.LeftButton)
+            self.assertTrue(combo.options.isVisible())
+            # Native popup mouse grabbing routes the second click to the popup,
+            # even though its global position is over the combo's text/arrow.
+            point = combo.options.mapFromGlobal(combo.mapToGlobal(QPoint(x, combo.height() // 2)))
+            QTest.mouseClick(combo.options, Qt.MouseButton.LeftButton, pos=point)
+            self.app.processEvents()
+            self.assertTrue(combo.options.isHidden())
+        combo.showPopup()
+        point = combo.options.mapFromGlobal(restored.filename.mapToGlobal(QPoint(2, 2)))
+        QTest.mouseClick(combo.options, Qt.MouseButton.LeftButton, pos=point)
+        self.app.processEvents()
+        self.assertTrue(combo.options.isHidden())
+        self.assertEqual(combo.currentData(), '%Y-%m-%d')
+        restored.incremental.setChecked(False)
+        self.assertFalse(restored.latest_only.isEnabled())
 
     def test_preferences_saved_immediately_and_restored(self):
         w = self.window
@@ -209,7 +254,6 @@ class WorkbenchTest(unittest.TestCase):
         w.directory.setText('D:/中文/downloads')
         w.incremental.setChecked(False)
         w.latest_only.setChecked(False)
-        w.date_naming.setChecked(False)
         w.date_format.setCurrentIndex(0)
         # Read from another process while the window is still open and no
         # download has started, proving settings were flushed to local storage.
@@ -223,7 +267,7 @@ class WorkbenchTest(unittest.TestCase):
         self.assertEqual(saved['links'], w.links.toPlainText())
         self.assertEqual(saved['cookies'], r'D:\中文\cookies.txt')
         self.assertEqual(saved['directory'], r'D:\中文\downloads')
-        self.assertEqual(saved['date_format'], '%Y-%m-%d')
+        self.assertEqual(saved['date_format'], '')
         restored = Window(QSettings(w.settings.fileName(), QSettings.Format.IniFormat))
         try:
             self.assertEqual(restored.links.toPlainText(), w.links.toPlainText())
@@ -231,7 +275,7 @@ class WorkbenchTest(unittest.TestCase):
             self.assertEqual(restored.directory.text(), saved['directory'])
             self.assertFalse(restored.incremental.isChecked())
             self.assertFalse(restored.latest_only.isChecked())
-            self.assertFalse(restored.date_naming.isChecked())
+            self.assertFalse(restored.date_format.currentData())
             self.assertEqual(restored.date_format.currentIndex(), 0)
             restored.links.clear()
             restored.cookies.clear()

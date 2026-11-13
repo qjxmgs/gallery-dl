@@ -4,7 +4,7 @@ import weakref
 from PySide6.QtCore import Qt, Signal, QRectF, QTimer
 from PySide6.QtGui import QColor, QPainter, QPen, QCursor
 from PySide6.QtWidgets import (QApplication, QCheckBox, QFrame, QHBoxLayout,
-    QLabel, QLineEdit, QPushButton, QScrollArea, QVBoxLayout, QWidget, QSizePolicy)
+    QLabel, QLineEdit, QPushButton, QScrollArea, QVBoxLayout, QWidget, QSizePolicy, QStyle)
 
 
 def valid_url(url):
@@ -132,6 +132,7 @@ class LinkCard(QFrame):
         self.title = QLabel()
         self.title.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.title.setObjectName('cardTitle')
+        self.title.setContentsMargins(2, 0, 0, 0)
         self.title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         body.addWidget(self.title)
         self.editor = UrlEdit(self)
@@ -139,10 +140,22 @@ class LinkCard(QFrame):
         row.addLayout(body, 1)
         self.remove = QPushButton('×')
         self.remove.setObjectName('removeLink')
-        self.remove.setFixedSize(22, 26)
+        self.remove.setFixedSize(22, 22)
         self.remove.setToolTip('移除此链接')
         self.remove.clicked.connect(self.remove_self)
-        row.addWidget(self.remove)
+        actions = QVBoxLayout()
+        actions.setSpacing(0)
+        actions.addWidget(self.remove, 0, Qt.AlignmentFlag.AlignRight)
+        actions.addStretch()
+        self.folder = QPushButton()
+        self.folder.setObjectName('openLinkFolder')
+        self.folder.setFixedSize(22, 22)
+        self.folder.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DirIcon))
+        self.folder.setToolTip('打开此链接的本地目录')
+        self.folder.setAccessibleName('打开此链接的本地目录')
+        self.folder.clicked.connect(lambda: self.owner.open_folder.emit(self.url))
+        actions.addWidget(self.folder, 0, Qt.AlignmentFlag.AlignRight)
+        row.addLayout(actions)
         self.remove.setVisible(False)
         policy = self.remove.sizePolicy()
         policy.setRetainSizeWhenHidden(True)
@@ -223,6 +236,7 @@ class LinkCard(QFrame):
 
 class LinkList(QWidget):
     changed = Signal()
+    open_folder = Signal(str)
 
     def __init__(self):
         super().__init__()

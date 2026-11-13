@@ -22,6 +22,7 @@ from .records import RecordTable
 from .process_control import PausedProcessTree
 from .media_button import MediaButton
 from .link_list import LinkList
+from .settings_controls import ToggleSwitch, NamingCombo
 from .naming import DATE_FORMATS, DEFAULT_DATE_FORMAT, DATE_FORMAT_ENV
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -98,20 +99,36 @@ class Window(QMainWindow):
         config_note.setObjectName('muted')
         config_header.addWidget(config_note)
         form.addLayout(config_header)
+        self.link_directories = json.loads(str(self.settings.value('link_directories', '{}')))
+        self.active_url = None
         self.links = LinkList()
+        self.links.open_folder.connect(self.open_link_directory)
         self.links.setAccessibleName('下载链接')
         if self.settings.contains('link_entries'):
             self.links.set_entries(json.loads(str(self.settings.value('link_entries'))))
         else:
             self.links.setPlainText(str(self.settings.value('links', '')))
         form.addWidget(self.links, 1)
+        settings_panel = QFrame()
+        settings_panel.setObjectName('settingsPanel')
+        settings_layout = QVBoxLayout(settings_panel)
+        settings_layout.setContentsMargins(12, 12, 12, 12)
+        settings_layout.setSpacing(10)
+        form.addWidget(settings_panel)
+
+        def separator():
+            line = QFrame()
+            line.setObjectName('settingsDivider')
+            line.setFixedHeight(1)
+            settings_layout.addWidget(line)
+
         cookie_header = QHBoxLayout()
         cookie_title = QLabel('Cookies 文件（可选）')
         cookie_tip = 'Cookies 仅供本地下载使用，不在日志中展示。'
         cookie_title.setToolTip(cookie_tip)
         cookie_header.addWidget(cookie_title)
         cookie_header.addStretch()
-        form.addLayout(cookie_header)
+        settings_layout.addLayout(cookie_header)
         self.cookies = QLineEdit(QDir.toNativeSeparators(
             str(self.settings.value('cookies', ''))))
         self.cookies.setPlaceholderText('选择 Netscape 格式 cookies.txt')
@@ -120,11 +137,12 @@ class Window(QMainWindow):
         self.cookie_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.cookie_button.clicked.connect(self.pick_cookies)
         cookie_header.addWidget(self.cookie_button)
-        form.addWidget(self.cookies)
+        settings_layout.addWidget(self.cookies)
+        separator()
         directory_header = QHBoxLayout()
         directory_header.addWidget(QLabel('下载目录'))
         directory_header.addStretch()
-        form.addLayout(directory_header)
+        settings_layout.addLayout(directory_header)
         self.directory = QLineEdit(
             str(self.settings.value('directory', str(ROOT / 'downloads'))))
         open_button = QPushButton('打开目录')
@@ -137,19 +155,21 @@ class Window(QMainWindow):
         self.dir_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.dir_button.clicked.connect(self.pick_directory)
         directory_header.addWidget(self.dir_button)
-        form.addWidget(self.directory)
+        settings_layout.addWidget(self.directory)
         self.normalize_path_fields()
         self.cookies.editingFinished.connect(self.normalize_path_fields)
         self.directory.editingFinished.connect(self.normalize_path_fields)
-        self.incremental = QCheckBox('增量下载')
+        self.incremental = ToggleSwitch('增量下载')
         self.incremental.setChecked(
             self.settings.value('incremental', True, type=bool))
         self.incremental.setToolTip(
             '记录保存在所选下载目录中。已记录的内容即使被移动或删除也会跳过。\n'
             '取消勾选后不使用记录，仍按原下载器规则跳过已有文件。')
+        separator()
         incremental_row = QHBoxLayout()
-        incremental_row.addWidget(self.incremental)
-        self.latest_only = QCheckBox('只检查最新')
+        incremental_row.setSpacing(12)
+        incremental_row.addWidget(self.incremental, 1)
+        self.latest_only = ToggleSwitch('只检查更新')
         self.latest_only.setChecked(
             self.settings.value('latest_only', True, type=bool))
         self.latest_only.setEnabled(self.incremental.isChecked())
@@ -158,23 +178,21 @@ class Window(QMainWindow):
             '不会检查或补齐历史遗漏；置顶、乱序或未下载完的多图内容可能被跳过。\n'
             '需要完整检查或补下载时，请取消勾选。')
         self.incremental.toggled.connect(self.latest_only.setEnabled)
-        incremental_row.addStretch()
-        incremental_row.addWidget(self.latest_only)
-        form.addLayout(incremental_row)
-        self.date_naming = QCheckBox('按发布日期命名')
-        self.date_naming.setChecked(
-            self.settings.value('date_naming', True, type=bool))
-        self.date_naming.setToolTip('在站点原命名前添加发布日期；缺少日期时保留原命名。')
-        form.addWidget(self.date_naming)
-        self.date_format = QComboBox()
+        incremental_row.addWidget(self.latest_only, 1)
+        settings_layout.addLayout(incremental_row)
+        separator()
+        settings_layout.addWidget(QLabel('文件命名'))
+        self.date_format = NamingCombo()
+        self.date_format.addItem('原文件名', '')
         for label, value in DATE_FORMATS:
             self.date_format.addItem(label, value)
-        selected = self.date_format.findData(
-            self.settings.value('date_format', DEFAULT_DATE_FORMAT))
-        self.date_format.setCurrentIndex(selected if selected >= 0 else 2)
-        self.date_format.setEnabled(self.date_naming.isChecked())
-        self.date_naming.toggled.connect(self.date_format.setEnabled)
-        form.addWidget(self.date_format)
+        saved_format = self.settings.value('date_format', DEFAULT_DATE_FORMAT)
+        if not self.settings.value('date_naming', True, type=bool):
+            saved_format = ''
+        selected = self.date_format.findData(saved_format)
+        self.date_format.setCurrentIndex(selected if selected >= 0 else 3)
+        self.date_format.setToolTip('日期取自发布日期；缺少日期时保留原文件名。')
+        settings_layout.addWidget(self.date_format)
         self.start_button = MediaButton('开始下载', 'play')
         self.start_button.setObjectName('downloadAction')
         self.start_button.setProperty('active', False)
@@ -252,6 +270,15 @@ class Window(QMainWindow):
         splitter.setCollapsible(1, False)
         self.setStyleSheet('''
             QMainWindow, QWidget { background: #f6f8fb; color: #233047; font-family: "Microsoft YaHei UI"; font-size: 13px; }
+            QFrame#settingsPanel { border: 1px solid #d5dde8; border-radius: 10px; }
+            QFrame#settingsDivider { background: #dfe5ee; border: none; }
+            QComboBox { background: white; border: 1px solid #cbd5e2; border-radius: 7px; padding: 8px; }
+            QComboBox:focus { border-color: #2782ed; }
+            QComboBox::drop-down { border: none; width: 22px; }
+            QListWidget#namingOptions { background: white; border: 1px solid #cbd5e2; border-radius: 8px; padding: 4px; outline: none; }
+            QListWidget#namingOptions::item { padding: 8px 5px; border-radius: 4px; }
+            QListWidget#namingOptions::item:selected { background: #eaf3ff; color: #2563eb; }
+            QListWidget#namingOptions::item:hover { background: #f0f5fc; }
             QLabel#heading { font-size: 17px; font-weight: 600; }
             QLabel#muted { color: #738096; font-size: 12px; }
             QLabel#status { color: #1767c5; }
@@ -279,9 +306,11 @@ class Window(QMainWindow):
             QFrame#linkCard[selected="true"] { background: #eaf3ff; border-color: #b5d4fc; }
             QFrame#linkCard QLabel, QFrame#linkCard QCheckBox { background: transparent; border: none; }
             QLabel#cardTitle { font-weight: 600; font-size: 14px; }
-            QFrame#linkCard QLineEdit { background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 0px 2px; color: #64748b; }
+            QFrame#linkCard QLineEdit { background: transparent; border: none; border-radius: 4px; padding: 0px; color: #64748b; }
             QFrame#linkCard QLineEdit:focus { background: white; border-color: #7fb4f4; }
             QFrame#linkCard QLineEdit[invalid="true"] { border-color: #dc2626; }
+            QPushButton#openLinkFolder { background: transparent; border: none; padding: 0px; }
+            QPushButton#openLinkFolder:hover { background: #eaf2ff; }
             QPushButton#removeLink { background: transparent; border: none; padding: 0px; color: #94a3b8; }
             QFrame#linkCard:hover QPushButton#removeLink, QPushButton#removeLink:focus { color: #94a3b8; }
             QPushButton#removeLink:hover { color: #dc2626; }
@@ -298,20 +327,20 @@ class Window(QMainWindow):
         for signal in (self.links.changed, self.cookies.textChanged,
                        self.directory.textChanged, self.incremental.toggled,
                        self.latest_only.toggled,
-                       self.date_naming.toggled,
                        self.date_format.currentIndexChanged):
             signal.connect(self.save_preferences)
         self.save_preferences()
 
     def save_preferences(self):
         values = {
+            'link_directories': json.dumps(self.link_directories, ensure_ascii=False),
             'links': self.links.toPlainText(),
             'link_entries': json.dumps(self.links.entries(), ensure_ascii=False),
             'cookies': QDir.toNativeSeparators(self.cookies.text()),
             'directory': QDir.toNativeSeparators(self.directory.text()),
             'incremental': self.incremental.isChecked(),
             'latest_only': self.latest_only.isChecked(),
-            'date_naming': self.date_naming.isChecked(),
+            'date_naming': bool(self.date_format.currentData()),
             'date_format': self.date_format.currentData(),
         }
         for key, value in values.items():
@@ -392,6 +421,26 @@ class Window(QMainWindow):
         for field in (self.cookies, self.directory):
             field.setText(QDir.toNativeSeparators(field.text()))
 
+    def link_directory_key(self, url):
+        return str(Path(self.directory.text()).expanduser().resolve()) + '\n' + url
+
+    def open_link_directory(self, url):
+        folder = self.link_directories.get(self.link_directory_key(url))
+        path = Path(folder) if folder else None
+        # Twitter's default extractor directory is twitter/{user[name]}.
+        # Resolve existing profile folders without making a network request.
+        if path is None or not path.is_dir():
+            parsed = urlsplit(url)
+            parts = parsed.path.strip('/').split('/')
+            if (parsed.hostname in ('x.com', 'www.x.com', 'twitter.com', 'www.twitter.com', 'mobile.twitter.com')
+                    and parts and re.fullmatch(r'[A-Za-z0-9_]{1,15}', parts[0])
+                    and parts[0].lower() not in ('i', 'home', 'search', 'explore', 'settings', 'messages')):
+                path = Path(self.directory.text()).expanduser() / 'twitter' / parts[0]
+        if path is None or not path.is_dir():
+            QMessageBox.information(self, '链接目录', '此链接的本地目录尚不存在或尚未记录，请先下载该链接。')
+            return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(path.resolve())))
+
     def open_directory(self):
         path = Path(self.directory.text()).expanduser()
         if not path.is_dir():
@@ -428,9 +477,10 @@ class Window(QMainWindow):
                 QMessageBox.warning(self, '导出失败', str(exc))
 
     def busy(self, value):
-        for widget in (self.links, self.cookies, self.directory, self.cookie_button, self.dir_button, self.incremental, self.date_naming):
+        for widget in (self.links, self.cookies, self.directory, self.cookie_button, self.dir_button, self.incremental, self.date_format):
             widget.setEnabled(not value)
-        self.date_format.setEnabled(not value and self.date_naming.isChecked())
+        if value:
+            self.date_format.hidePopup()
         self.latest_only.setEnabled(not value and self.incremental.isChecked())
         self.stop_button.setEnabled(value)
         self.set_download_action(value)
@@ -504,7 +554,7 @@ class Window(QMainWindow):
         self.busy(True)
         self.append_log(f'开始下载，共 {len(urls)} 个链接。')
         self.append_log('发布日期命名：' + self.date_format.currentText() + '；无日期时保留原命名。'
-                        if self.date_naming.isChecked() else '发布日期命名已关闭，保留原命名。')
+                        if bool(self.date_format.currentData()) else '发布日期命名已关闭，保留原命名。')
         self.append_log(f'增量下载已开启，记录文件：{self.archive_path}' if self.archive_path
                         else '增量下载已关闭；仍跳过本地已有文件。')
         self.next_url()
@@ -514,6 +564,7 @@ class Window(QMainWindow):
             self.finish_batch()
             return
         url = self.pending.pop(0)
+        self.active_url = url
         self.active_row = None
         self.progress.setRange(0, 0)
         self.filename.setText('正在解析链接…')
@@ -532,7 +583,7 @@ class Window(QMainWindow):
         env.insert('PYTHONIOENCODING', 'utf-8')
         env.insert('PYTHONUNBUFFERED', '1')
         env.insert(DATE_FORMAT_ENV, self.date_format.currentData()
-                   if self.date_naming.isChecked() else '')
+                   if bool(self.date_format.currentData()) else '')
         process.setProcessEnvironment(env)
         process.setWorkingDirectory(str(ROOT))
         args = ['-u', '-m', 'gui.worker', '--ignore-config', '--no-colors',
@@ -576,6 +627,12 @@ class Window(QMainWindow):
         kind = event['type']
         if kind in ('start', 'skip', 'success'):
             path = event['path']
+            if self.active_url:
+                key = self.link_directory_key(self.active_url)
+                folder = str(Path(path).resolve().parent)
+                if self.link_directories.get(key) != folder:
+                    self.link_directories[key] = folder
+                    self.save_preferences()
             self.active_row = path
             self.filename.setText(Path(path).name)
             state = {'start': '下载中', 'skip': '已跳过', 'success': '已完成'}[kind]
