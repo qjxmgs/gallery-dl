@@ -1,10 +1,10 @@
 """Selectable URL cards with stable inline editing geometry."""
 from urllib.parse import urlsplit
 import weakref
-from PySide6.QtCore import Qt, Signal, QRectF, QTimer
+from PySide6.QtCore import Qt, Signal, QRectF, QTimer, QEvent, QPoint
 from PySide6.QtGui import QColor, QPainter, QPen, QCursor
 from PySide6.QtWidgets import (QApplication, QCheckBox, QFrame, QHBoxLayout,
-    QLabel, QLineEdit, QPushButton, QScrollArea, QVBoxLayout, QWidget, QSizePolicy, QStyle)
+    QLabel, QLineEdit, QPushButton, QScrollArea, QScrollBar, QVBoxLayout, QWidget, QSizePolicy, QStyle)
 
 
 def valid_url(url):
@@ -263,13 +263,14 @@ class LinkList(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.external_scrollbar = None
         content = QWidget()
         self.content = content
         self.drop_indicator = QFrame(content)
         self.drop_indicator.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.drop_indicator.hide()
         self.rows = QVBoxLayout(content)
-        self.rows.setContentsMargins(0, 0, 4, 0)
+        self.rows.setContentsMargins(0, 0, 0, 0)
         self.rows.setSpacing(8)
         self.rows.addStretch()
         scroll.setWidget(content)
@@ -284,6 +285,41 @@ class LinkList(QWidget):
         self.hint.hide()
         self.setMinimumHeight(230)
         self.refresh()
+
+    def place_scrollbar_in_gutter(self, parent):
+        """Use the form's existing right gutter, outside the cards' viewport."""
+        self.external_scrollbar = QScrollBar(Qt.Orientation.Vertical, parent)
+        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        native = self.scroll.verticalScrollBar()
+        native.rangeChanged.connect(self.sync_scrollbar)
+        native.valueChanged.connect(self.external_scrollbar.setValue)
+        self.external_scrollbar.valueChanged.connect(native.setValue)
+        self.installEventFilter(self)
+        self.scroll.installEventFilter(self)
+        parent.installEventFilter(self)
+        self.sync_scrollbar()
+
+    def sync_scrollbar(self, *_):
+        bar = self.external_scrollbar
+        if bar is None:
+            return
+        native = self.scroll.verticalScrollBar()
+        bar.setRange(native.minimum(), native.maximum())
+        bar.setPageStep(native.pageStep())
+        bar.setSingleStep(native.singleStep())
+        bar.setValue(native.value())
+        top = self.scroll.mapTo(bar.parentWidget(), QPoint(0, 0))
+        bottom = self.add.mapTo(bar.parentWidget(), QPoint(0, self.add.height()))
+        bar.setGeometry(top.x() + self.width() + 8, top.y(), 8, max(0, bottom.y() - top.y()))
+        bar.setEnabled(self.isEnabled())
+        bar.setVisible(self.isVisible() and native.maximum() > native.minimum())
+        bar.raise_()
+
+    def eventFilter(self, watched, event):
+        if event.type() in (QEvent.Type.Resize, QEvent.Type.Move, QEvent.Type.Show,
+                            QEvent.Type.Hide, QEvent.Type.LayoutRequest, QEvent.Type.EnabledChange):
+            self.sync_scrollbar()
+        return super().eventFilter(watched, event)
 
     def target_at(self, y):
         for index, card in enumerate(self.cards):

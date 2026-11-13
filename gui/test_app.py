@@ -150,10 +150,10 @@ class WorkbenchTest(unittest.TestCase):
         self.assertEqual(w.start_button.text(), '恢复下载')
         self.assertEqual(len(w.pending), 1)
         QTest.qWait(100)
-        partial = next(Path(w.directory.text()).rglob('*.part'))
-        before = partial.stat().st_size
+        self.assertEqual(list(Path(w.directory.text()).rglob('*.part')), [])
+        before = w.progress.value()
         QTest.qWait(450)
-        self.assertEqual(partial.stat().st_size, before)
+        self.assertEqual(w.progress.value(), before)
         self.assertIn('已暂停', w.status.text())
         w.grab().save(str(QA / 'download-paused.png'))
         w.start_button.click()
@@ -165,6 +165,18 @@ class WorkbenchTest(unittest.TestCase):
         completed = next(Path(w.directory.text()).rglob('*pause.jpg'))
         self.assertEqual(hashlib.sha256(completed.read_bytes()).digest(), hashlib.sha256(PAYLOAD).digest())
         self.assertEqual(w.start_button.text(), '开始下载')
+
+    def test_batch_write_disabled_uses_disk(self):
+        from gui.batch_write import BATCH_ENV
+        w = self.window
+        w.batch_write.setChecked(False)
+        w.links.setPlainText(self.base + '/direct-write.jpg')
+        w.start()
+        self.assertEqual(w.proc.processEnvironment().value(BATCH_ENV), '0')
+        self.wait_for(lambda: bool(list(Path(w.directory.text()).rglob('*.part'))))
+        self.wait_for(lambda: w.proc is None)
+        completed = next(Path(w.directory.text()).rglob('*direct-write.jpg'))
+        self.assertEqual(completed.read_bytes(), PAYLOAD)
 
     def test_stop_while_paused(self):
         w = self.window
@@ -246,6 +258,30 @@ class WorkbenchTest(unittest.TestCase):
         self.assertEqual(combo.currentData(), '%Y-%m-%d')
         restored.incremental.setChecked(False)
         self.assertFalse(restored.latest_only.isEnabled())
+
+    def test_rules_header_clicks_and_restore(self):
+        from PySide6.QtCore import QPoint
+        w = self.window
+        w.batch_write.setChecked(False)
+        w.date_format.setCurrentIndex(0)
+        header = w.rules_toggle
+        for x in (5, 35, header.width() // 2, header.width() - 15):
+            QTest.mouseClick(header, Qt.MouseButton.LeftButton, pos=QPoint(x, 20))
+            self.assertTrue(w.rules_body.isHidden())
+            self.assertTrue(w.settings.value('rules_collapsed', False, type=bool))
+            QTest.mouseClick(header, Qt.MouseButton.LeftButton, pos=QPoint(x, 20))
+            self.assertFalse(w.rules_body.isHidden())
+        header.click()
+        restored = Window(QSettings(w.settings.fileName(), QSettings.Format.IniFormat))
+        self.addCleanup(restored.close)
+        self.assertTrue(restored.rules_body.isHidden())
+        self.assertTrue(restored.rules_toggle.isChecked())
+        self.assertFalse(restored.batch_write.isChecked())
+        self.assertEqual(restored.date_format.currentData(), '')
+        restored.rules_toggle.click()
+        reopened = Window(QSettings(w.settings.fileName(), QSettings.Format.IniFormat))
+        self.addCleanup(reopened.close)
+        self.assertFalse(reopened.rules_toggle.isChecked())
 
     def test_preferences_saved_immediately_and_restored(self):
         w = self.window

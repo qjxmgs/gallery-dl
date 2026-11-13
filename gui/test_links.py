@@ -100,6 +100,37 @@ class LinksTest(unittest.TestCase):
             opened.assert_not_called()
             info.assert_called_once()
 
+    def test_scrollbar_uses_outer_gutter_without_shrinking_cards(self):
+        from PySide6.QtCore import QPoint
+        from PySide6.QtTest import QTest
+        w = Window(QSettings(str(self.root / 'gutter.ini'), QSettings.Format.IniFormat))
+        self.addCleanup(w.close)
+        w.links.setPlainText('https://x.com/one')
+        w.show()
+        QTest.qWait(30)
+        width = w.links.cards[0].width()
+        w.links.setPlainText('\n'.join('https://x.com/user' + str(i) for i in range(30)))
+        QTest.qWait(30)
+        links = w.links
+        bar = links.external_scrollbar
+        self.assertTrue(bar.isVisible())
+        self.assertEqual(links.cards[0].width(), width)
+        edge = links.mapTo(bar.parentWidget(), QPoint(links.width(), 0)).x()
+        self.assertGreater(bar.x(), edge)
+        self.assertLessEqual(bar.geometry().right(), bar.parentWidget().width())
+        native = links.scroll.verticalScrollBar()
+        bar.setValue(bar.maximum())
+        self.assertEqual(native.value(), native.maximum())
+        native.setValue(native.maximum() // 2)
+        self.assertEqual(bar.value(), native.value())
+        w.rules_toggle.click()
+        QTest.qWait(30)
+        self.assertEqual(bar.pageStep(), native.pageStep())
+        w.links.setPlainText('https://x.com/one')
+        QTest.qWait(30)
+        self.assertFalse(bar.isVisible())
+        self.assertEqual(links.cards[0].width(), width)
+
     def test_drag_swap_insert_and_persistence(self):
         settings = QSettings(str(self.root / 'reorder.ini'), QSettings.Format.IniFormat)
         w = Window(settings)

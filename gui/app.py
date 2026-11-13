@@ -22,6 +22,7 @@ from .records import RecordTable
 from .process_control import PausedProcessTree
 from .media_button import MediaButton
 from .link_list import LinkList
+from .batch_write import BATCH_ENV
 from .settings_controls import ToggleButton, NamingCombo
 from .naming import DATE_FORMATS, DEFAULT_DATE_FORMAT, DATE_FORMAT_ENV
 
@@ -101,6 +102,7 @@ class Window(QMainWindow):
         form.addLayout(config_header)
         self.link_directories = json.loads(str(self.settings.value('link_directories', '{}')))
         self.active_url = None
+        self.cached_paths = set()
         self.links = LinkList()
         self.links.open_folder.connect(self.open_link_directory)
         self.links.setAccessibleName('下载链接')
@@ -109,11 +111,39 @@ class Window(QMainWindow):
         else:
             self.links.setPlainText(str(self.settings.value('links', '')))
         form.addWidget(self.links, 1)
+        self.links.place_scrollbar_in_gutter(left)
         settings_panel = QFrame()
         settings_panel.setObjectName('settingsPanel')
-        settings_layout = QVBoxLayout(settings_panel)
-        settings_layout.setContentsMargins(12, 12, 12, 12)
+        panel_layout = QVBoxLayout(settings_panel)
+        panel_layout.setContentsMargins(0, 0, 0, 0)
+        panel_layout.setSpacing(0)
+        self.rules_toggle = QPushButton()
+        self.rules_toggle.setObjectName('rulesHeader')
+        self.rules_toggle.setFixedHeight(40)
+        self.rules_toggle.setCheckable(True)
+        rules_header = QHBoxLayout(self.rules_toggle)
+        rules_header.setContentsMargins(12, 0, 12, 0)
+        rules_title = QLabel('规则设置')
+        rules_title.setObjectName('rulesTitle')
+        rules_title.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        rules_header.addWidget(rules_title)
+        rules_header.addStretch()
+        self.rules_arrow = QToolButton()
+        self.rules_arrow.setObjectName('rulesToggle')
+        self.rules_arrow.setFixedSize(24, 24)
+        self.rules_arrow.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.rules_arrow.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.rules_arrow.setArrowType(Qt.ArrowType.DownArrow)
+        self.rules_toggle.setToolTip('收起规则设置')
+        self.rules_toggle.setAccessibleName('收起规则设置')
+        self.rules_toggle.toggled.connect(self.toggle_rules)
+        rules_header.addWidget(self.rules_arrow)
+        panel_layout.addWidget(self.rules_toggle)
+        self.rules_body = QWidget()
+        settings_layout = QVBoxLayout(self.rules_body)
+        settings_layout.setContentsMargins(12, 0, 12, 12)
         settings_layout.setSpacing(10)
+        panel_layout.addWidget(self.rules_body)
         form.addWidget(settings_panel)
 
         def separator():
@@ -179,6 +209,10 @@ class Window(QMainWindow):
             '需要完整检查或补下载时，请取消勾选。')
         self.incremental.toggled.connect(self.latest_only.setEnabled)
         incremental_row.addWidget(self.latest_only)
+        self.batch_write = ToggleButton('批量落盘')
+        self.batch_write.setChecked(self.settings.value('batch_write', True, type=bool))
+        self.batch_write.setToolTip('HTTP 文件先缓存到内存，约 200MB 时集中写盘；链接结束或正常停止时保存剩余缓存。\n大文件达到阈值后转为磁盘写入；外部下载器仍直接写盘。\n强制结束进程或断电会丢失尚未落盘的缓存。')
+        incremental_row.addWidget(self.batch_write)
         incremental_row.addStretch()
         settings_layout.addLayout(incremental_row)
         separator()
@@ -204,7 +238,6 @@ class Window(QMainWindow):
         self.stop_button.clicked.connect(self.stop)
         for button in (self.start_button, self.stop_button):
             button.setFixedSize(88, 88)
-        form.addStretch()
         left_scroll = QScrollArea()
         left_scroll.setWidgetResizable(True)
         left_scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -272,6 +305,12 @@ class Window(QMainWindow):
         self.setStyleSheet('''
             QMainWindow, QWidget { background: #f6f8fb; color: #233047; font-family: "Microsoft YaHei UI"; font-size: 13px; }
             QFrame#settingsPanel { border: 1px solid #d5dde8; border-radius: 10px; }
+            QPushButton#rulesHeader { background: transparent; border: none; border-radius: 10px; padding: 0px; }
+            QPushButton#rulesHeader:hover { background: #eaf2ff; }
+            QPushButton#rulesHeader:focus { border: 1px solid #2782ed; }
+            QLabel#rulesTitle { background: transparent; font-weight: 600; }
+            QToolButton#rulesToggle { background: transparent; border: none; border-radius: 4px; }
+            QToolButton#rulesToggle:hover { background: #e0eaff; }
             QFrame#settingsDivider { background: #dfe5ee; border: none; }
             QComboBox { background: white; border: 1px solid #cbd5e2; border-radius: 7px; padding: 8px; }
             QComboBox:focus { border-color: #2782ed; }
@@ -329,14 +368,23 @@ class Window(QMainWindow):
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
             QSplitter::handle { background: #dfe5ee; width: 1px; }
         ''')
+        self.rules_toggle.setChecked(self.settings.value('rules_collapsed', False, type=bool))
         # Connect after restoring every field so initialization cannot overwrite
         # saved values with another control's temporary default.
         for signal in (self.links.changed, self.cookies.textChanged,
                        self.directory.textChanged, self.incremental.toggled,
-                       self.latest_only.toggled,
-                       self.date_format.currentIndexChanged):
+                       self.latest_only.toggled, self.batch_write.toggled,
+                       self.date_format.currentIndexChanged, self.rules_toggle.toggled):
             signal.connect(self.save_preferences)
         self.save_preferences()
+
+    def toggle_rules(self, collapsed):
+        self.date_format.hidePopup()
+        self.rules_body.setVisible(not collapsed)
+        self.rules_arrow.setArrowType(Qt.ArrowType.UpArrow if collapsed else Qt.ArrowType.DownArrow)
+        label = '展开规则设置' if collapsed else '收起规则设置'
+        self.rules_toggle.setToolTip(label)
+        self.rules_toggle.setAccessibleName(label)
 
     def save_preferences(self):
         values = {
@@ -347,6 +395,8 @@ class Window(QMainWindow):
             'directory': QDir.toNativeSeparators(self.directory.text()),
             'incremental': self.incremental.isChecked(),
             'latest_only': self.latest_only.isChecked(),
+            'batch_write': self.batch_write.isChecked(),
+            'rules_collapsed': self.rules_toggle.isChecked(),
             'date_naming': bool(self.date_format.currentData()),
             'date_format': self.date_format.currentData(),
         }
@@ -484,7 +534,7 @@ class Window(QMainWindow):
                 QMessageBox.warning(self, '导出失败', str(exc))
 
     def busy(self, value):
-        for widget in (self.links, self.cookies, self.directory, self.cookie_button, self.dir_button, self.incremental, self.date_format):
+        for widget in (self.links, self.cookies, self.directory, self.cookie_button, self.dir_button, self.incremental, self.batch_write, self.date_format):
             widget.setEnabled(not value)
         if value:
             self.date_format.hidePopup()
@@ -589,6 +639,7 @@ class Window(QMainWindow):
         env = QProcessEnvironment.systemEnvironment()
         env.insert('PYTHONIOENCODING', 'utf-8')
         env.insert('PYTHONUNBUFFERED', '1')
+        env.insert(BATCH_ENV, '1' if self.batch_write.isChecked() else '0')
         env.insert(DATE_FORMAT_ENV, self.date_format.currentData()
                    if bool(self.date_format.currentData()) else '')
         process.setProcessEnvironment(env)
@@ -634,6 +685,8 @@ class Window(QMainWindow):
         kind = event['type']
         if kind in ('start', 'skip', 'success'):
             path = event['path']
+            if kind == 'success':
+                self.cached_paths.discard(path)
             if self.active_url:
                 key = self.link_directory_key(self.active_url)
                 folder = str(Path(path).resolve().parent)
@@ -663,6 +716,9 @@ class Window(QMainWindow):
                 if kind == 'skip' and self.incremental.isChecked() and self.latest_only.isChecked():
                     self.append_log('已遇到下载记录，结束当前网址的最新检查；历史内容未检查。')
             self.update_status('正在下载')
+        elif kind == 'cached':
+            self.cached_paths.add(event['path'])
+            self.table.update_record(event['path'], state='待落盘')
         elif kind == 'progress':
             total = event.get('total')
             downloaded = event.get('downloaded', 0)
@@ -705,6 +761,11 @@ class Window(QMainWindow):
         if self.active_row is not None and self.table.state(self.active_row) in ('下载中', '已暂停'):
             self.table.update_record(self.active_row, state=(
                 '已停止' if self.stopping else '已失败' if code else '已结束'))
+        for path in self.cached_paths:
+            self.table.update_record(path, state='落盘失败')
+        if self.cached_paths:
+            self.append_log('部分内存缓存未能落盘，请检查错误日志并重新下载。')
+        self.cached_paths.clear()
         self.proc.deleteLater()
         self.proc = None
         self.paused = False
@@ -732,6 +793,13 @@ class Window(QMainWindow):
         self.start_button.setEnabled(False)
         self.append_log('正在停止下载；已完成文件保留，未完成文件按下载器规则保留。')
         if self.proc:
+            if self.batch_write.isChecked():
+                if self.paused:
+                    self.paused_tree.resume()
+                    self.paused = False
+                self.append_log('正在保存内存缓存，请等待下载进程安全退出。')
+                self.proc.write(b'stop\n')
+                return
             if sys.platform == 'win32' and self.proc.processId():
                 # Stop helper processes (e.g. yt-dlp/ffmpeg) along with the worker.
                 try:

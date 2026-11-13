@@ -8,6 +8,9 @@ def emit(kind, **values):
     print(json.dumps(dict(type=kind, **values), ensure_ascii=False), flush=True)
 
 
+batch_writer = None
+
+
 class ProgressOutput:
     def __init__(self):
         self.last = 0
@@ -20,7 +23,12 @@ class ProgressOutput:
         emit("skip", path=str(path))
 
     def success(self, path):
-        emit("success", path=str(path))
+        filename = str(path)
+        if batch_writer is not None and batch_writer.files:
+            emit('cached', path=filename)
+            batch_writer.defer(lambda: emit('success', path=filename))
+        else:
+            emit('success', path=filename)
 
     def progress(self, bytes_total, bytes_downloaded, bytes_per_second):
         now = time.monotonic()
@@ -38,7 +46,17 @@ def main():
     output.select = ProgressOutput
     if date_format := os.environ.get(DATE_FORMAT_ENV):
         path.PathFormat = dated_path_format(path.PathFormat, date_format)
-    return gallery_dl.main()
+    global batch_writer
+    from .batch_write import BATCH_ENV, BatchWriter, start_stop_listener
+    if os.environ.get(BATCH_ENV) == '1':
+        batch_writer = BatchWriter(emit)
+        batch_writer.install()
+        start_stop_listener()
+    try:
+        return gallery_dl.main()
+    finally:
+        if batch_writer is not None:
+            batch_writer.flush()
 
 
 if __name__ == "__main__":
