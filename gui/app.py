@@ -15,12 +15,13 @@ from PySide6.QtGui import QColor, QDesktopServices, QIcon, QTextCharFormat, QTex
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit,
     QMainWindow, QMessageBox, QPlainTextEdit, QProgressBar, QPushButton,
-    QSplitter, QStyle, QToolButton, QVBoxLayout, QWidget,
+    QSplitter, QStyle, QToolButton, QVBoxLayout, QWidget, QScrollArea, QFrame,
 )
 from .window_chrome import LogWindow, follow_native_drag
 from .records import RecordTable
 from .process_control import PausedProcessTree
 from .media_button import MediaButton
+from .link_list import LinkList
 from .naming import DATE_FORMATS, DEFAULT_DATE_FORMAT, DATE_FORMAT_ENV
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -65,6 +66,7 @@ def validate_inputs(text, cookies, directory):
 class Window(QMainWindow):
     def __init__(self, settings=None):
         super().__init__()
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.settings = settings or QSettings('gallery-dl', 'ChineseGUI')
         self.proc = None
         self.paused = False
@@ -96,11 +98,12 @@ class Window(QMainWindow):
         config_note.setObjectName('muted')
         config_header.addWidget(config_note)
         form.addLayout(config_header)
-        self.links = QPlainTextEdit()
+        self.links = LinkList()
         self.links.setAccessibleName('下载链接')
-        self.links.setPlainText(str(self.settings.value('links', '')))
-        self.links.setPlaceholderText('粘贴要下载的链接\n支持多个链接，每行一个')
-        self.links.setMinimumHeight(140)
+        if self.settings.contains('link_entries'):
+            self.links.set_entries(json.loads(str(self.settings.value('link_entries'))))
+        else:
+            self.links.setPlainText(str(self.settings.value('links', '')))
         form.addWidget(self.links, 1)
         cookie_header = QHBoxLayout()
         cookie_title = QLabel('Cookies 文件（可选）')
@@ -181,7 +184,12 @@ class Window(QMainWindow):
         open_button.clicked.connect(self.open_directory)
         form.addWidget(open_button)
         form.addStretch()
-        splitter.addWidget(left)
+        left_scroll = QScrollArea()
+        left_scroll.setWidgetResizable(True)
+        left_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        left_scroll.setMinimumWidth(320)
+        left_scroll.setWidget(left)
+        splitter.addWidget(left_scroll)
         right = QWidget()
         body = QVBoxLayout(right)
         body.setContentsMargins(20, 12, 0, 0)
@@ -265,20 +273,38 @@ class Window(QMainWindow):
             QTableWidget { alternate-background-color: #f4f7fb; gridline-color: #e8edf4; }
             QProgressBar { border: none; border-radius: 5px; background: #e0e8f3; text-align: center; min-height: 24px; }
             QProgressBar::chunk { background: #2284ee; border-radius: 5px; }
+            QFrame#linkCard { background: white; border: 1px solid #dce4ef; border-radius: 10px; }
+            QFrame#linkCard[selected="true"] { background: #eaf3ff; border-color: #b5d4fc; }
+            QFrame#linkCard QLabel, QFrame#linkCard QCheckBox { background: transparent; border: none; }
+            QLabel#cardTitle { font-weight: 600; font-size: 14px; }
+            QFrame#linkCard QLineEdit { background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 0px 2px; color: #64748b; }
+            QFrame#linkCard QLineEdit:focus { background: white; border-color: #7fb4f4; }
+            QFrame#linkCard QLineEdit[invalid="true"] { border-color: #dc2626; }
+            QPushButton#removeLink { background: transparent; border: none; padding: 0px; color: #94a3b8; }
+            QFrame#linkCard:hover QPushButton#removeLink, QPushButton#removeLink:focus { color: #94a3b8; }
+            QPushButton#removeLink:hover { color: #dc2626; }
+            QPushButton#addLinks { color: #2563eb; background: #f8fbff; border: 1px dashed #b8cae3; border-radius: 8px; }
+            QPushButton#addLinks:hover { background: #eaf3ff; }
+            QScrollArea { border: none; background: transparent; }
+            QScrollBar:vertical { background: transparent; width: 8px; margin: 0px; }
+            QScrollBar::handle:vertical { background: #c5d2e2; border-radius: 4px; min-height: 28px; }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
             QSplitter::handle { background: #dfe5ee; width: 1px; }
         ''')
         # Connect after restoring every field so initialization cannot overwrite
         # saved values with another control's temporary default.
-        for signal in (self.links.textChanged, self.cookies.textChanged,
+        for signal in (self.links.changed, self.cookies.textChanged,
                        self.directory.textChanged, self.incremental.toggled,
                        self.latest_only.toggled,
                        self.date_naming.toggled,
                        self.date_format.currentIndexChanged):
             signal.connect(self.save_preferences)
+        self.save_preferences()
 
     def save_preferences(self):
         values = {
             'links': self.links.toPlainText(),
+            'link_entries': json.dumps(self.links.entries(), ensure_ascii=False),
             'cookies': QDir.toNativeSeparators(self.cookies.text()),
             'directory': QDir.toNativeSeparators(self.directory.text()),
             'incremental': self.incremental.isChecked(),
@@ -443,9 +469,13 @@ class Window(QMainWindow):
         if self.proc is not None:
             return
         self.normalize_path_fields()
+        if not self.links.commit_edits():
+            return
         try:
-            urls, directory = validate_inputs(self.links.toPlainText(
-            ), self.cookies.text().strip(), self.directory.text())
+            selected = self.links.selected_urls()
+            if not selected:
+                raise ValueError('请至少勾选一个下载链接')
+            urls, directory = validate_inputs('\n'.join(selected), self.cookies.text().strip(), self.directory.text())
         except (ValueError, OSError) as exc:
             QMessageBox.warning(self, '请检查下载配置', str(exc))
             return
