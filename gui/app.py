@@ -22,7 +22,7 @@ from .records import RecordTable
 from .process_control import PausedProcessTree
 from .media_button import MediaButton
 from .link_list import LinkList
-from .settings_controls import ToggleSwitch, NamingCombo
+from .settings_controls import ToggleButton, NamingCombo
 from .naming import DATE_FORMATS, DEFAULT_DATE_FORMAT, DATE_FORMAT_ENV
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -159,7 +159,7 @@ class Window(QMainWindow):
         self.normalize_path_fields()
         self.cookies.editingFinished.connect(self.normalize_path_fields)
         self.directory.editingFinished.connect(self.normalize_path_fields)
-        self.incremental = ToggleSwitch('增量下载')
+        self.incremental = ToggleButton('增量下载')
         self.incremental.setChecked(
             self.settings.value('incremental', True, type=bool))
         self.incremental.setToolTip(
@@ -167,9 +167,9 @@ class Window(QMainWindow):
             '取消勾选后不使用记录，仍按原下载器规则跳过已有文件。')
         separator()
         incremental_row = QHBoxLayout()
-        incremental_row.setSpacing(12)
-        incremental_row.addWidget(self.incremental, 1)
-        self.latest_only = ToggleSwitch('只检查更新')
+        incremental_row.setSpacing(8)
+        incremental_row.addWidget(self.incremental)
+        self.latest_only = ToggleButton('只检查最新')
         self.latest_only.setChecked(
             self.settings.value('latest_only', True, type=bool))
         self.latest_only.setEnabled(self.incremental.isChecked())
@@ -178,7 +178,8 @@ class Window(QMainWindow):
             '不会检查或补齐历史遗漏；置顶、乱序或未下载完的多图内容可能被跳过。\n'
             '需要完整检查或补下载时，请取消勾选。')
         self.incremental.toggled.connect(self.latest_only.setEnabled)
-        incremental_row.addWidget(self.latest_only, 1)
+        incremental_row.addWidget(self.latest_only)
+        incremental_row.addStretch()
         settings_layout.addLayout(incremental_row)
         separator()
         settings_layout.addWidget(QLabel('文件命名'))
@@ -298,6 +299,12 @@ class Window(QMainWindow):
             QPushButton#stopAction:disabled { background: #fee2e2; color: #c88b8b; }
             QPushButton#downloadAction:disabled { background: #e2e8f0; color: #94a3b8; }
             QPushButton:disabled { background: #e9edf3; color: #95a0af; border-color: #dde3eb; }
+            QPushButton#settingToggle { background: #e9edf3; color: #64748b; border: 1px solid #d5dde8; border-radius: 8px; padding: 6px 4px; }
+            QPushButton#settingToggle:hover { background: #dfe7f1; border-color: #a7bbd5; }
+            QPushButton#settingToggle:checked { background: #2563eb; color: white; border-color: #2563eb; }
+            QPushButton#settingToggle:checked:hover { background: #1d4ed8; border-color: #1d4ed8; }
+            QPushButton#settingToggle:focus { border-color: #173c88; }
+            QPushButton#settingToggle:disabled { background: #edf0f4; color: #a0aaba; border-color: #dfe5ee; }
             QHeaderView::section { background: #edf2f8; padding: 9px; border: none; }
             QTableWidget { alternate-background-color: #f4f7fb; gridline-color: #e8edf4; }
             QProgressBar { border: none; border-radius: 5px; background: #e0e8f3; text-align: center; min-height: 24px; }

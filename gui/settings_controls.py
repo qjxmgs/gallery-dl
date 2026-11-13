@@ -1,34 +1,63 @@
-"""Compact switches and a floating, downward-opening naming selector."""
-from PySide6.QtCore import QEvent, QPoint, QRectF, QSize, Qt
-from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen, QRegion
-from PySide6.QtWidgets import QApplication, QCheckBox, QComboBox, QListWidget
+"""Compact toggle buttons and a floating, downward-opening naming selector."""
+from PySide6.QtCore import QEvent, QPoint, QRect, QRectF, QSize, Qt
+from PySide6.QtGui import QColor, QIcon, QPainter, QPainterPath, QPen, QPixmap, QRegion
+from PySide6.QtWidgets import QApplication, QComboBox, QListWidget, QPushButton, QSizePolicy, QStyle, QStyleOptionButton
 
 
-class ToggleSwitch(QCheckBox):
+class ToggleButton(QPushButton):
+    def __init__(self, text):
+        super().__init__(text)
+        self.setCheckable(True)
+        self.setObjectName('settingToggle')
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self.setIconSize(QSize(16, 16))
+        self.toggled.connect(self.update_check_icon)
+        self.update_check_icon()
+
     def sizeHint(self):
-        return QSize(self.fontMetrics().horizontalAdvance(self.text()) + 46, 32)
+        size = super().sizeHint()
+        size.setWidth(4 + self.iconSize().width() + 4 + self.fontMetrics().horizontalAdvance(self.text()) + 4)
+        return size
 
     def minimumSizeHint(self):
         return self.sizeHint()
 
-    def hitButton(self, pos):
-        return self.rect().contains(pos)
-
     def paintEvent(self, event):
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        p.setPen(QColor('#233047' if self.isEnabled() else '#94a3b8'))
-        p.drawText(self.rect().adjusted(0, 0, -42, 0), Qt.AlignmentFlag.AlignVCenter, self.text())
-        x, y = self.width() - 34, (self.height() - 20) / 2
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor(('#2563eb' if self.isChecked() else '#a4afbf') if self.isEnabled() else '#cbd5e2'))
-        p.drawRoundedRect(QRectF(x, y, 34, 20), 10, 10)
-        p.setBrush(QColor('white'))
-        p.drawEllipse(QRectF(x + (16 if self.isChecked() else 2), y + 2, 16, 16))
-        if self.hasFocus():
-            p.setBrush(Qt.BrushStyle.NoBrush)
-            p.setPen(QColor('#2782ed'))
-            p.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), 4, 4)
+        option = QStyleOptionButton()
+        self.initStyleOption(option)
+        option.text = ''
+        option.icon = QIcon()
+        painter = QPainter(self)
+        self.style().drawControl(QStyle.ControlElement.CE_PushButton, option, painter, self)
+        mode = QIcon.Mode.Normal if self.isEnabled() else QIcon.Mode.Disabled
+        icon_width = self.iconSize().width()
+        self.icon().paint(painter, QRect(4, (self.height() - 16) // 2, icon_width, 16),
+                          Qt.AlignmentFlag.AlignCenter, mode)
+        painter.setPen(QColor('#a0aaba' if not self.isEnabled() else 'white' if self.isChecked() else '#64748b'))
+        painter.drawText(self.rect().adjusted(4 + icon_width + 4, 0, -4, 0),
+                         Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, self.text())
+
+    def update_check_icon(self):
+        icon = QIcon()
+        for mode, color in ((QIcon.Mode.Normal, 'white' if self.isChecked() else '#64748b'),
+                            (QIcon.Mode.Disabled, '#a0aaba')):
+            pixmap = QPixmap(32, 32)
+            pixmap.setDevicePixelRatio(2)
+            pixmap.fill(Qt.GlobalColor.transparent)
+            painter = QPainter(pixmap)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            painter.setPen(QPen(QColor(color), 1.4))
+            painter.drawEllipse(QRectF(1, 1, 14, 14))
+            if self.isChecked():
+                check = QPainterPath()
+                check.moveTo(4, 8)
+                check.lineTo(7, 11)
+                check.lineTo(12, 5)
+                painter.drawPath(check)
+            painter.end()
+            for state in (QIcon.State.Off, QIcon.State.On):
+                icon.addPixmap(pixmap, mode, state)
+        self.setIcon(icon)
 
 
 class NamingCombo(QComboBox):
